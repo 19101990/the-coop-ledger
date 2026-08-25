@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Deep Harz Forest Green Background -->
+  <rect width="512" height="512" rx="112" fill="#1b2f23"/>
+
+  <!-- The Letter B (Parchment White, Maximum Size) -->
+  <text x="256" y="375" font-family="Georgia, serif" font-size="340" font-weight="bold" fill="#f4ecd8" text-anchor="middle">B</text>
+</svg>
