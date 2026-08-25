@@ -14,7 +14,7 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'Brandeshof Coop',
+        name: 'The Coop',
         short_name: 'The Coop',
         description: 'Internal farm management ledger',
         theme_color: '#d97706',
