@@ -161,8 +161,7 @@ export function SidebarMenu({ activeTab, setActiveTab, setIsMenuOpen }: SidebarM
         className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs" 
         onClick={() => setIsMenuOpen(false)} 
       />
-      <nav className="relative w-72 max-w-xs bg-white h-full shadow-xl flex flex-col p-6 animate-fade-in">
-        <h2 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-4">Farm Navigation</h2>
+      <nav className="relative w-72 max-w-xs bg-white h-full shadow-xl flex flex-col p-6 mt-14 animate-fade-in">
         <div className="space-y-1">
 
           {menuItems.map((item) => (

@@ -158,7 +158,7 @@ export default function PantryManager() {
               )}
             </div>
             
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">For Sale Boxes</label>
                 <input
