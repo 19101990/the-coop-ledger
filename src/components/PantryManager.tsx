@@ -127,7 +127,7 @@ export default function PantryManager() {
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-col items-start justify-between gap-3 mb-5">
           <div>
             <h2 className="text-lg font-bold text-stone-900 mb-1">📦 Pantry Manager</h2>
             <p className="text-stone-500 text-sm">Real-time inventory of what's currently on the farm shelves.</p>
@@ -152,7 +152,7 @@ export default function PantryManager() {
                 <p className="text-xs text-stone-500">Update counts directly to account for breakage, personal consumption, or audits.</p>
               </div>
               {isDemo && (
-                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-[10px] font-bold uppercase rounded-md">
+                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-[10px] text-center font-bold uppercase rounded-md">
                   Demo Mode
                 </span>
               )}
@@ -162,10 +162,16 @@ export default function PantryManager() {
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">For Sale Boxes</label>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={editForSale}
-                  onChange={(e) => setEditForSale(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setEditForSale(val === '' ? 0 : Number(val));
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required
                 />
@@ -173,10 +179,16 @@ export default function PantryManager() {
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">Personal Boxes</label>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={editPersonal}
-                  onChange={(e) => setEditPersonal(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setEditPersonal(val === '' ? 0 : Number(val));
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required
                 />
@@ -184,16 +196,22 @@ export default function PantryManager() {
               <div>
                 <label className="block text-xs font-medium text-stone-700 mb-1">Loose Eggs</label>
                 <input
-                  type="number"
-                  min="0"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={editLoose}
-                  onChange={(e) => setEditLoose(Number(e.target.value))}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setEditLoose(val === '' ? 0 : Number(val));
+                    }
+                  }}
                   className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   required
                 />
               </div>
             </div>
-
+            
             <div className="flex justify-end space-x-2 pt-2">
               <button
                 type="button"
