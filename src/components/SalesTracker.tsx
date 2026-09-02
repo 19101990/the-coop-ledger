@@ -21,7 +21,6 @@ export default function SalesTracker() {
 
   const [salesLog, setSalesLog] = useState<SaleEntry[]>([]);
 
-
   useEffect(() => {
     const fetchCustomers = async () => {
       try {
@@ -63,7 +62,6 @@ export default function SalesTracker() {
       setPriceOverride((rawCount * 0.50).toFixed(2));
     }
   }, [eggsSoldInput, paymentStatus, isManualPrice]);
-
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,28 +181,70 @@ export default function SalesTracker() {
 
     // 🟢 LIVE MODE
     try {
-      const { data, error } = await supabase
+      // Fetch current pantry state
+      const { data: pantryData, error: pantryError } = await supabase
+        .from('pantry_inventory')
+        .select('*')
+        .order('last_updated', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pantryError) throw pantryError;
+
+      let currentSaleBoxes = pantryData?.boxes_for_sale || 0;
+      let currentPersonalBoxes = pantryData?.boxes_personal || 0;
+      let currentLoose = pantryData?.loose_eggs || 0;
+
+      // Calculate deductions and borrowing logic
+      let boxesToDeduct = Math.floor(rawEggs / 10);
+      let looseToDeduct = rawEggs % 10;
+
+      let newLoose = currentLoose - looseToDeduct;
+      let newSaleBoxes = currentSaleBoxes - boxesToDeduct;
+
+      // If we don't have enough loose eggs, break open a box
+      if (newLoose < 0) {
+        newLoose += 10; // Unpack 10 loose eggs
+        newSaleBoxes -= 1; // Consume an additional box to cover it
+      }
+
+      // Prevent negative values (if someone forces an oversell)
+      newLoose = Math.max(0, newLoose);
+      newSaleBoxes = Math.max(0, newSaleBoxes);
+
+      // Save the Sale
+      const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert([
           {
             customer_name: selectedCustomer,
-            amount_boxes: calculatedBoxes,
+            amount_boxes: calculatedBoxes, // Storing as fractional boxes per original spec
             price: finalPrice,
             status: paymentStatus,
             date: finalDate || new Date().toISOString().split('T')[0],
-            secret_pass: 'abigail'
+            secret_pass: 'abigail' // Maintain your placeholder pass requirement
           }
         ])
         .select();
 
-      if (error) {
-        console.error('Error inserting sale to cloud:', error.message);
-        alert(`Failed to save transaction to database: ${error.message}`);
-        return;
-      }
+      if (saleError) throw saleError;
 
-      if (data && data.length > 0) {
-        const databaseSale = data[0];
+      // Save the updated Pantry State
+      const { error: updatePantryError } = await supabase
+        .from('pantry_inventory')
+        .insert([
+          {
+            boxes_for_sale: newSaleBoxes,
+            boxes_personal: currentPersonalBoxes, // Personal stock untouched during a sale
+            loose_eggs: newLoose
+          }
+        ]);
+
+      if (updatePantryError) throw updatePantryError;
+
+      // Update Local UI
+      if (saleData && saleData.length > 0) {
+        const databaseSale = saleData[0];
         const newLogEntry: SaleEntry = {
           id: databaseSale.id.toString(), 
           customerName: databaseSale.customer_name,
@@ -215,9 +255,10 @@ export default function SalesTracker() {
         };
 
         setSalesLog([newLogEntry, ...salesLog].slice(0, 10));
-        triggerDemoToast('Live Mode: Sale saved to cloud! 💰');
+        triggerDemoToast('Live Mode: Sale and Pantry updated! 💰');
       }
 
+      // Reset form
       setEggsSoldInput('');
       setPriceOverride('');
       setIsManualPrice(false);
@@ -229,8 +270,9 @@ export default function SalesTracker() {
         setSelectedCustomer('Walk-in Customer');
       }
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected error tracking transaction:', err);
+      alert(`Transaction Failed: ${err.message}`);
     }
   };
 

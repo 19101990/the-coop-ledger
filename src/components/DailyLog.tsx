@@ -105,15 +105,26 @@ export default function DailyLog() {
     return key.charAt(0).toUpperCase() + key.slice(1);
   };
 
-  const calculateDailyTotal = (log: DBLogEntry) => {
+  const calculateDailyTotal = (log: DBLogEntry | EggCounts) => {
+    if ('eggs_chocolate' in log) {
+      return (
+        (log.eggs_chocolate || 0) +
+        (log.eggs_brown || 0) +
+        (log.eggs_beige || 0) +
+        (log.eggs_olive || 0) +
+        (log.eggs_blue || 0) +
+        (log.eggs_nato || 0) +
+        (log.eggs_perlhuhn || 0)
+      );
+    }
     return (
-      (log.eggs_chocolate || 0) +
-      (log.eggs_brown || 0) +
-      (log.eggs_beige || 0) +
-      (log.eggs_olive || 0) +
-      (log.eggs_blue || 0) +
-      (log.eggs_nato || 0) +
-      (log.eggs_perlhuhn || 0)
+      (log.chocolate || 0) +
+      (log.brown || 0) +
+      (log.beige || 0) +
+      (log.olive || 0) +
+      (log.blue || 0) +
+      (log.nato || 0) +
+      (log.perlhuhn || 0)
     );
   };
 
@@ -159,19 +170,45 @@ export default function DailyLog() {
 
       triggerDemoToast('Demo Mode: Daily log saved locally! 🥚');
 
-      // Reset form
       setLogDate('today');
       setCustomDate('');
       setBoxesForSale('');
       setBoxesForPersonal('');
       setLogNotes('');
       setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
-      return; // Stop execution here
+      return; 
     }
 
-    // 🟢 2. LIVE MODE: Send to Supabase
+    // 🟢 LIVE MODE
     try {
-      const { data, error } = await supabase
+      // Fetch current pantry state
+      const { data: pantryData, error: pantryError } = await supabase
+        .from('pantry_inventory')
+        .select('*')
+        .order('last_updated', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pantryError) throw pantryError;
+
+      let currentSaleBoxes = pantryData?.boxes_for_sale || 0;
+      let currentPersonalBoxes = pantryData?.boxes_personal || 0;
+      let currentLoose = pantryData?.loose_eggs || 0;
+
+      // Calculate net change in loose eggs and add new boxes
+      const totalCollected = calculateDailyTotal(eggCollected);
+      const packedForSale = parseInt(boxesForSale) || 0;
+      const packedPersonal = parseInt(boxesForPersonal) || 0;
+      
+      const eggsUsedForPacking = (packedForSale * 10) + (packedPersonal * 10);
+      const netLooseChange = totalCollected - eggsUsedForPacking;
+
+      const newLoose = currentLoose + netLooseChange;
+      const newSaleBoxes = currentSaleBoxes + packedForSale;
+      const newPersonalBoxes = currentPersonalBoxes + packedPersonal;
+
+      // Save the Daily Log
+      const { data: logData, error: logError } = await supabase
         .from('daily_log')
         .insert([
           {
@@ -183,21 +220,30 @@ export default function DailyLog() {
             eggs_blue: eggCollected.blue,
             eggs_nato: eggCollected.nato,
             eggs_perlhuhn: eggCollected.perlhuhn,
-            boxes_for_sale: parseInt(boxesForSale) || 0,
-            boxes_personal: parseInt(boxesForPersonal) || 0,
+            boxes_for_sale: packedForSale,
+            boxes_personal: packedPersonal,
             notes: logNotes.trim() || null
           }
         ])
         .select();
 
-      if (error) {
-        console.error('Error saving daily log:', error.message);
-        alert(`Failed to save record to cloud database: ${error.message}`);
-        return;
-      }
+      if (logError) throw logError;
 
-      if (data) {
-        triggerDemoToast('Live Mode: Daily log saved to cloud! 🥚');
+      // Save the new Pantry State
+      const { error: updatePantryError } = await supabase
+        .from('pantry_inventory')
+        .insert([
+          {
+            boxes_for_sale: newSaleBoxes,
+            boxes_personal: newPersonalBoxes,
+            loose_eggs: newLoose
+          }
+        ]);
+
+      if (updatePantryError) throw updatePantryError;
+
+      if (logData) {
+        triggerDemoToast('Live Mode: Daily log and Pantry saved! 🥚');
         
         setLogDate('today');
         setCustomDate('');
@@ -210,8 +256,9 @@ export default function DailyLog() {
         setHasMore(true);
         fetchLogHistory(0, true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Unexpected tracking error:', err);
+      alert(`Transaction Failed: ${err.message}`);
     }
   };
 

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import type { LegacyYearlyEntry } from '../types/types';
 import { supabase } from '../supabaseClient';
 
 interface YearlyReportRow {
