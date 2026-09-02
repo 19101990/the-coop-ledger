@@ -147,10 +147,10 @@ export default function RecordsSummaryPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-stone-200 text-stone-400 font-semibold uppercase tracking-wider">
-                  <th className="pb-2">Year</th>
-                  <th className="pb-2 text-center">Collected</th>
-                  <th className="pb-2 text-center">Sold</th>
-                  <th className="pb-2 text-right">Revenue</th>
+                  <th className="pb-2 text-[9px]">Year</th>
+                  <th className="pb-2 text-center text-[9px]">Amount</th>
+                  <th className="pb-2 text-center text-[9px]">Sold</th>
+                  <th className="pb-2 text-right text-[9px]">Revenue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-stone-700">
