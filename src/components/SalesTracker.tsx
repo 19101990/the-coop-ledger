@@ -218,11 +218,10 @@ export default function SalesTracker() {
         .insert([
           {
             customer_name: selectedCustomer,
-            amount_boxes: calculatedBoxes, // Storing as fractional boxes per original spec
+            amount_boxes: calculatedBoxes,
             price: finalPrice,
             status: paymentStatus,
             date: finalDate || new Date().toISOString().split('T')[0],
-            secret_pass: 'abigail' // Maintain your placeholder pass requirement
           }
         ])
         .select();
@@ -235,7 +234,7 @@ export default function SalesTracker() {
         .insert([
           {
             boxes_for_sale: newSaleBoxes,
-            boxes_personal: currentPersonalBoxes, // Personal stock untouched during a sale
+            boxes_personal: currentPersonalBoxes,
             loose_eggs: newLoose
           }
         ]);
