@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
 import type { SaleEntry } from '../types/types';
+import SectionHeader from '../components/SectionHeader';
+import DateSelector from '../components/DateSelector';
 
 export default function SalesTracker() {
+  const getTodayString = (): string => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
 
   const { isDemo, triggerDemoToast } = useDemo();
 
@@ -11,13 +17,12 @@ export default function SalesTracker() {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [newCustomerInput, setNewCustomerInput] = useState('');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
-  
+
   const [eggsSoldInput, setEggsSoldInput] = useState('');
   const [priceOverride, setPriceOverride] = useState('');
   const [isManualPrice, setIsManualPrice] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Gift'>('Paid');
-  const [saleDate, setSaleDate] = useState('today');
-  const [customDate, setCustomDate] = useState('');
+  const [saleDate, setSaleDate] = useState(getTodayString());
 
   const [salesLog, setSalesLog] = useState<SaleEntry[]>([]);
 
@@ -38,7 +43,7 @@ export default function SalesTracker() {
         if (data) {
           const names = data.map(c => c.name);
           setCustomers(names);
-          
+
           if (names.includes('Walk-in Customer')) {
             setSelectedCustomer('Walk-in Customer');
           } else if (names.length > 0) {
@@ -66,7 +71,7 @@ export default function SalesTracker() {
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = newCustomerInput.trim();
-    
+
     if (!cleanName) return;
     if (customers.includes(cleanName)) {
       alert('This name already exists inside your roster records!');
@@ -80,10 +85,10 @@ export default function SalesTracker() {
       setSelectedCustomer(cleanName);
       setNewCustomerInput('');
       setShowAddCustomer(false);
-      
+
       localStorage.setItem('demo_customers', JSON.stringify(updatedCustomers));
       triggerDemoToast(`Demo Mode: Customer "${cleanName}" added locally!`);
-      
+
       return;
     }
 
@@ -92,9 +97,9 @@ export default function SalesTracker() {
       const { error } = await supabase
         .from('customers')
         .insert([
-          { 
-            name: cleanName, 
-            is_active: true 
+          {
+            name: cleanName,
+            is_active: true
           }
         ]);
 
@@ -155,7 +160,7 @@ export default function SalesTracker() {
       return;
     }
 
-    const finalDate = saleDate === 'today' ? new Date().toISOString().split('T')[0] : customDate;
+    const finalDate = saleDate;
     const finalPrice = paymentStatus === 'Gift' ? 0 : parseFloat(priceOverride) || 0;
     const calculatedBoxes = rawEggs / 10;
 
@@ -164,7 +169,7 @@ export default function SalesTracker() {
       const newLogEntry: SaleEntry = {
         id: Math.random().toString(36).substring(7),
         customerName: selectedCustomer,
-        amountBoxes: calculatedBoxes * 10, 
+        amountBoxes: calculatedBoxes * 10,
         price: finalPrice,
         status: paymentStatus,
         date: finalDate || new Date().toISOString().split('T')[0]
@@ -175,13 +180,12 @@ export default function SalesTracker() {
 
       localStorage.setItem('demo_sales_ledger', JSON.stringify(updatedLog));
       triggerDemoToast("Demo Mode: Sale saved to LocalStorage!");
-      
+
       return;
     }
 
     // 🟢 LIVE MODE
     try {
-      // Fetch current pantry state
       const { data: pantryData, error: pantryError } = await supabase
         .from('pantry_inventory')
         .select('*')
@@ -195,24 +199,20 @@ export default function SalesTracker() {
       let currentPersonalBoxes = pantryData?.boxes_personal || 0;
       let currentLoose = pantryData?.loose_eggs || 0;
 
-      // Calculate deductions and borrowing logic
       let boxesToDeduct = Math.floor(rawEggs / 10);
       let looseToDeduct = rawEggs % 10;
 
       let newLoose = currentLoose - looseToDeduct;
       let newSaleBoxes = currentSaleBoxes - boxesToDeduct;
 
-      // If we don't have enough loose eggs, break open a box
       if (newLoose < 0) {
-        newLoose += 10; // Unpack 10 loose eggs
-        newSaleBoxes -= 1; // Consume an additional box to cover it
+        newLoose += 10;
+        newSaleBoxes -= 1;
       }
 
-      // Prevent negative values (if someone forces an oversell)
       newLoose = Math.max(0, newLoose);
       newSaleBoxes = Math.max(0, newSaleBoxes);
 
-      // Save the Sale
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
         .insert([
@@ -228,7 +228,6 @@ export default function SalesTracker() {
 
       if (saleError) throw saleError;
 
-      // Save the updated Pantry State
       const { error: updatePantryError } = await supabase
         .from('pantry_inventory')
         .insert([
@@ -241,11 +240,10 @@ export default function SalesTracker() {
 
       if (updatePantryError) throw updatePantryError;
 
-      // Update Local UI
       if (saleData && saleData.length > 0) {
         const databaseSale = saleData[0];
         const newLogEntry: SaleEntry = {
-          id: databaseSale.id.toString(), 
+          id: databaseSale.id.toString(),
           customerName: databaseSale.customer_name,
           amountBoxes: Number(databaseSale.amount_boxes) * 10,
           price: Number(databaseSale.price),
@@ -257,18 +255,15 @@ export default function SalesTracker() {
         triggerDemoToast('Live Mode: Sale and Pantry updated! 💰');
       }
 
-      // Reset form
       setEggsSoldInput('');
       setPriceOverride('');
       setIsManualPrice(false);
       setPaymentStatus('Paid');
-      setSaleDate('today');
-      setCustomDate('');
-      
+      setSaleDate(getTodayString());
+
       if (customers.includes('Walk-in Customer')) {
         setSelectedCustomer('Walk-in Customer');
       }
-
     } catch (err: any) {
       console.error('Unexpected error tracking transaction:', err);
       alert(`Transaction Failed: ${err.message}`);
@@ -278,13 +273,13 @@ export default function SalesTracker() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <h2 className="text-lg font-bold text-stone-900 mb-4">💰 Log a Sale</h2>
+        <SectionHeader emoji="💰" title="Log a Sale" />
 
         <div className="mb-4">
           <div className="flex justify-between items-center mb-1.5">
             <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider">Customer</label>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => setShowAddCustomer(!showAddCustomer)}
               className="text-xs text-amber-700 font-medium hover:underline"
             >
@@ -312,7 +307,7 @@ export default function SalesTracker() {
                 onChange={(e) => setNewCustomerInput(e.target.value)}
                 className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 text-sm"
               />
-              <button 
+              <button
                 type="submit"
                 className="bg-stone-800 text-white text-xs px-4 rounded-xl hover:bg-stone-900 font-semibold"
               >
@@ -378,28 +373,13 @@ export default function SalesTracker() {
           </div>
         </div>
 
-        <div className="mb-5">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Date of Sale</label>
-          <select
-            value={saleDate}
-            onChange={(e) => setSaleDate(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500 mb-2"
-          >
-            <option value="today">Today (Current Day)</option>
-            <option value="other">Choose custom date...</option>
-          </select>
+        <DateSelector 
+          value={saleDate}
+          onChange={setSaleDate}
+          label="Date of Sale"
+        />
 
-          {saleDate === 'other' && (
-            <input
-              type="date"
-              value={customDate}
-              onChange={(e) => setCustomDate(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500 animate-fade-in"
-            />
-          )}
-        </div>
-
-        <button 
+        <button
           onClick={handleSaveSale}
           className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs"
         >

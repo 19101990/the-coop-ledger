@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import LoadingSpinner from '../components/LoadingSpinner';
+import FormInput from '../components/FormInput';
+import SectionHeader from '../components/SectionHeader';
 
 export default function PantryManager() {
   const { isDemo } = useDemo();
-  
+
   const [boxesForSale, setBoxesForSale] = useState(0);
   const [boxesPersonal, setBoxesPersonal] = useState(0);
   const [looseEggs, setLooseEggs] = useState(0);
-  
+
   const [editForSale, setEditForSale] = useState(0);
   const [editPersonal, setEditPersonal] = useState(0);
   const [editLoose, setEditLoose] = useState(0);
@@ -16,7 +19,7 @@ export default function PantryManager() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function PantryManager() {
           setBoxesForSale(data.boxes_for_sale);
           setBoxesPersonal(data.boxes_personal);
           setLooseEggs(data.loose_eggs);
-          
+
           setEditForSale(data.boxes_for_sale);
           setEditPersonal(data.boxes_personal);
           setEditLoose(data.loose_eggs);
@@ -77,7 +80,7 @@ export default function PantryManager() {
         setLooseEggs(Number(editLoose));
         setIsOpen(false);
         setSaving(false);
-      }, 600); // 600ms fake network delay for realism
+      }, 600);
       return;
     }
 
@@ -105,7 +108,6 @@ export default function PantryManager() {
       setBoxesPersonal(Number(editPersonal));
       setLooseEggs(Number(editLoose));
       setIsOpen(false);
-
     } catch (error) {
       console.error('Error saving adjustment:', error);
       alert('Failed to update inventory.');
@@ -120,29 +122,25 @@ export default function PantryManager() {
   const canEdit = isAuthenticated || isDemo;
 
   if (loading) {
-    return <div className="p-5 text-stone-500 animate-pulse">Loading pantry inventory...</div>;
+    return <LoadingSpinner message="Loading pantry inventory..." size="md" />;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        
-        <div className="flex flex-col items-start justify-between gap-3 mb-5">
-          <div>
-            <h2 className="text-lg font-bold text-stone-900 mb-1">📦 Pantry Manager</h2>
-            <p className="text-stone-500 text-sm">Real-time inventory of what's currently on the farm shelves.</p>
-          </div>
-          
-          {canEdit && (
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-            >
-              <span>{isOpen ? 'Close Adjustment' : 'Manual Adjust'}</span>
-              <span>{isOpen ? '▴' : '▾'}</span>
-            </button>
-          )}
-        </div>
+        <SectionHeader
+          emoji="📦"
+          title="Pantry Manager"
+          description="Real-time inventory of what's currently on the farm shelves."
+          action={
+            canEdit
+              ? {
+                  label: isOpen ? 'Close Adjustment' : 'Manual Adjust',
+                  onClick: () => setIsOpen(!isOpen)
+                }
+              : undefined
+          }
+        />
 
         {isOpen && canEdit && (
           <form onSubmit={handleSaveAdjustment} className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-4 animate-fade-in">
@@ -157,61 +155,49 @@ export default function PantryManager() {
                 </span>
               )}
             </div>
-            
+
             <div className="grid grid-cols-1 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-stone-700 mb-1">For Sale Boxes</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={editForSale}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || /^\d+$/.test(val)) {
-                      setEditForSale(val === '' ? 0 : Number(val));
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-stone-700 mb-1">Personal Boxes</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={editPersonal}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || /^\d+$/.test(val)) {
-                      setEditPersonal(val === '' ? 0 : Number(val));
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-stone-700 mb-1">Loose Eggs</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={editLoose}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val === '' || /^\d+$/.test(val)) {
-                      setEditLoose(val === '' ? 0 : Number(val));
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
+              <FormInput
+                label="For Sale Boxes"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={editForSale}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d+$/.test(val)) {
+                    setEditForSale(val === '' ? 0 : Number(val));
+                  }
+                }}
+              />
+              <FormInput
+                label="Personal Boxes"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={editPersonal}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d+$/.test(val)) {
+                    setEditPersonal(val === '' ? 0 : Number(val));
+                  }
+                }}
+              />
+              <FormInput
+                label="Loose Eggs"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={editLoose}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d+$/.test(val)) {
+                    setEditLoose(val === '' ? 0 : Number(val));
+                  }
+                }}
+              />
             </div>
-            
+
             <div className="flex justify-end space-x-2 pt-2">
               <button
                 type="button"
@@ -268,7 +254,6 @@ export default function PantryManager() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );

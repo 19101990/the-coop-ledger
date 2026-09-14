@@ -2,10 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import type { EggVariety, EggCounts, DBLogEntry } from '../types/types';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import DateSelector from '../components/DateSelector';
+import LoadingSpinner from '../components/LoadingSpinner';
+import SectionHeader from '../components/SectionHeader';
 
 export default function DailyLog() {
-  const [logDate, setLogDate] = useState('today');
-  const [customDate, setCustomDate] = useState('');
+  const getTodayString = (): string => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
+  const [saleDate, setSaleDate] = useState(getTodayString());
   const [eggCollected, setEggCollected] = useState<EggCounts>({
     chocolate: 0,
     brown: 0,
@@ -66,13 +73,42 @@ export default function DailyLog() {
     }
   };
 
+  const refreshLogHistory = async () => {
+    setPage(0);
+    setHasMore(true);
+    setLogsSummary([]);
+    setIsLoadingHistory(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('daily_log')
+        .select('*')
+        .order('date', { ascending: false })
+        .limit(ITEMS_PER_PAGE);
+
+      if (error) {
+        console.error('Error refreshing logs:', error.message);
+        return;
+      }
+
+      if (data) {
+        setLogsSummary(data);
+        setHasMore(data.length === ITEMS_PER_PAGE);
+      }
+    } catch (err) {
+      console.error('Error refreshing log history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
   useEffect(() => {
     fetchLogHistory(page);
   }, [page]);
 
   useEffect(() => {
     const currentElement = observerTarget.current;
-    
+
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoadingHistory) {
@@ -129,22 +165,7 @@ export default function DailyLog() {
   };
 
   const handleSaveDailyLog = async () => {
-    let finalDateString = '';
-    const todayObj = new Date();
-
-    if (logDate === 'today') {
-      finalDateString = todayObj.toISOString().split('T')[0];
-    } else if (logDate === 'yesterday') {
-      const yesterdayObj = new Date();
-      yesterdayObj.setDate(todayObj.getDate() - 1);
-      finalDateString = yesterdayObj.toISOString().split('T')[0];
-    } else {
-      if (!customDate) {
-        alert('Please choose a previous date first.');
-        return;
-      }
-      finalDateString = customDate;
-    }
+    const finalDateString = saleDate;
 
     // 🛑 DEMO MODE
     if (isDemo) {
@@ -170,18 +191,16 @@ export default function DailyLog() {
 
       triggerDemoToast('Demo Mode: Daily log saved locally! 🥚');
 
-      setLogDate('today');
-      setCustomDate('');
+      setSaleDate(getTodayString());
       setBoxesForSale('');
       setBoxesForPersonal('');
       setLogNotes('');
       setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
-      return; 
+      return;
     }
 
     // 🟢 LIVE MODE
     try {
-      // Fetch current pantry state
       const { data: pantryData, error: pantryError } = await supabase
         .from('pantry_inventory')
         .select('*')
@@ -195,11 +214,10 @@ export default function DailyLog() {
       let currentPersonalBoxes = pantryData?.boxes_personal || 0;
       let currentLoose = pantryData?.loose_eggs || 0;
 
-      // Calculate net change in loose eggs and add new boxes
       const totalCollected = calculateDailyTotal(eggCollected);
       const packedForSale = parseInt(boxesForSale) || 0;
       const packedPersonal = parseInt(boxesForPersonal) || 0;
-      
+
       const eggsUsedForPacking = (packedForSale * 10) + (packedPersonal * 10);
       const netLooseChange = totalCollected - eggsUsedForPacking;
 
@@ -207,7 +225,6 @@ export default function DailyLog() {
       const newSaleBoxes = currentSaleBoxes + packedForSale;
       const newPersonalBoxes = currentPersonalBoxes + packedPersonal;
 
-      // Save the Daily Log
       const { data: logData, error: logError } = await supabase
         .from('daily_log')
         .insert([
@@ -229,7 +246,6 @@ export default function DailyLog() {
 
       if (logError) throw logError;
 
-      // Save the new Pantry State
       const { error: updatePantryError } = await supabase
         .from('pantry_inventory')
         .insert([
@@ -244,17 +260,14 @@ export default function DailyLog() {
 
       if (logData) {
         triggerDemoToast('Live Mode: Daily log and Pantry saved! 🥚');
-        
-        setLogDate('today');
-        setCustomDate('');
+
+        setSaleDate(getTodayString());
         setBoxesForSale('');
         setBoxesForPersonal('');
         setLogNotes('');
         setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
 
-        setPage(0);
-        setHasMore(true);
-        fetchLogHistory(0, true);
+        await refreshLogHistory();
       }
     } catch (err: any) {
       console.error('Unexpected tracking error:', err);
@@ -265,54 +278,38 @@ export default function DailyLog() {
   return (
     <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 animate-fade-in">
       <div className="flex flex-col gap-6">
-
-        {/* Input Form Card */}
         <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">🐔 Daily Coop Log</h2>
-          
-          <div className="mb-5">
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">
-              Date Collected
-            </label>
-            <select 
-              value={logDate} 
-              onChange={(e) => setLogDate(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500 mb-2"
-            >
-              <option value="today">Today (Current Day)</option>
-              <option value="yesterday">Yesterday</option>
-              <option value="custom">Choose previous date...</option>
-            </select>
+          <SectionHeader emoji="🐔" title="Daily Coop Log" />
 
-            {logDate === 'custom' && (
-              <input 
-                type="date"
-                value={customDate}
-                onChange={(e) => setCustomDate(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500 animate-fade-in"
-              />
-            )}
-          </div>
+          <DateSelector
+            value={saleDate}
+            onChange={setSaleDate}
+            label="Date Collected"
+          />
 
           <div className="mb-6">
             <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">
               Egg Collection Counters
             </label>
-            <div className="space-y-2 pr-1">
-              {(Object.keys(eggCollected) as EggVariety[]).map((variety) => (
-                <div key={variety} className="flex items-center justify-between p-3 bg-stone-50 rounded-xl border border-stone-150">
-                  <span className="font-medium text-stone-700">{handleEggVarietyLabel(variety)}</span>
-                  <div className="flex items-center space-x-3">
-                    <button 
-                      onClick={() => adjustEggCount(variety, -1)}
-                      className="w-10 h-10 bg-white active:bg-stone-100 text-stone-600 font-bold text-xl rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
+
+            <div className="grid grid-cols-1 gap-3">
+              {Object.entries(eggCollected).map(([variety, count]) => (
+                <div key={variety} className="flex items-center space-x-2 bg-stone-50 p-3 rounded-xl border border-stone-150">
+                  <div className="flex-1">
+                    <p className="font-semibold text-stone-900 text-sm">{handleEggVarietyLabel(variety)}</p>
+                    <p className="text-xs text-stone-400">Collected</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => adjustEggCount(variety as EggVariety, -1)}
+                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded"
                     >
-                      -
+                      −
                     </button>
-                    <span className="w-8 text-center font-bold text-lg text-stone-900">{eggCollected[variety]}</span>
-                    <button 
-                      onClick={() => adjustEggCount(variety, 1)}
-                      className="w-10 h-10 bg-white active:bg-stone-100 text-stone-600 font-bold text-xl rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
+                    <span className="w-6 text-center font-bold text-sm">{count}</span>
+                    <button
+                      onClick={() => adjustEggCount(variety as EggVariety, 1)}
+                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded"
                     >
                       +
                     </button>
@@ -320,16 +317,18 @@ export default function DailyLog() {
                 </div>
               ))}
             </div>
+            <p className="text-xs text-right text-stone-500 mt-2">Total: {calculateDailyTotal(eggCollected)} eggs</p>
           </div>
 
-          <div className="mb-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3 mb-6">
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-                Boxes Packed for Sale (10-packs)
+                Boxes for Sale
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 placeholder="0"
+                min="0"
                 value={boxesForSale}
                 onChange={(e) => setBoxesForSale(e.target.value)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500"
@@ -337,11 +336,12 @@ export default function DailyLog() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-                Boxes for Own Use (10-packs)
+                Boxes for Personal Use
               </label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 placeholder="0"
+                min="0"
                 value={boxesForPersonal}
                 onChange={(e) => setBoxesForPersonal(e.target.value)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500"
@@ -351,45 +351,44 @@ export default function DailyLog() {
 
           <div className="mb-5">
             <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-              Coop Notes
+              Log Notes
             </label>
-            <textarea 
-              rows={2}
-              placeholder="Any notable chicken events, issues, or details..."
+            <textarea
+              rows={3}
+              placeholder="Any observations about the hens, weather, or other notes..."
               value={logNotes}
               onChange={(e) => setLogNotes(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 focus:outline-none focus:border-amber-500 text-sm"
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500 text-sm"
             />
           </div>
 
-          <button 
+          <button
             onClick={handleSaveDailyLog}
             className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs"
           >
-            Save Entry
+            Save Daily Log
           </button>
         </div>
 
-        {/* Historical production Log Feed Card */}
         <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <h2 className="text-lg font-bold text-stone-900 mb-4">📊 Historical Production Feed</h2>
+          <h3 className="text-lg font-bold text-stone-900 mb-4">📋 Historical Logs</h3>
 
-          <div className="space-y-4">
-            {logsSummary.map((log, index) => {
-              const dayTotal = calculateDailyTotal(log);
-
-              return (
-                <div key={`coop-log-${log.id || log.date}-${index}`} className="p-4 bg-stone-50 rounded-xl border border-stone-150">
+          {logsSummary.length === 0 ? (
+            <LoadingSpinner message="No logs yet. Create your first entry above!" size="sm" />
+          ) : (
+            <div className="space-y-3">
+              {logsSummary.map((log) => (
+                <div key={log.id} className="p-4 bg-stone-50 rounded-xl border border-stone-150">
                   <div className="flex justify-between items-center border-b border-stone-200 pb-2 mb-3">
                     <span className="font-bold text-stone-800">
                       {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                     </span>
                     <span className="bg-amber-100 text-amber-900 font-extrabold text-xs px-2.5 py-1 rounded-full">
-                      Total: {dayTotal} Eggs
+                      Total: {calculateDailyTotal(log)} Eggs
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium text-stone-600">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium text-stone-600 mb-3">
                     {log.eggs_chocolate > 0 && <div>Chocolate: <span className="font-bold text-stone-900">{log.eggs_chocolate}</span></div>}
                     {log.eggs_brown > 0 && <div>Brown: <span className="font-bold text-stone-900">{log.eggs_brown}</span></div>}
                     {log.eggs_beige > 0 && <div>Beige: <span className="font-bold text-stone-900">{log.eggs_beige}</span></div>}
@@ -400,7 +399,7 @@ export default function DailyLog() {
                   </div>
 
                   {(log.boxes_for_sale > 0 || log.boxes_personal > 0) && (
-                    <div className="mt-3 pt-2 border-t border-dashed border-stone-200 flex space-x-4 text-xs text-stone-500">
+                    <div className="pt-2 border-t border-dashed border-stone-200 flex space-x-4 text-xs text-stone-500">
                       {log.boxes_for_sale > 0 && <span>For Sale: <strong className="text-stone-700">{log.boxes_for_sale} boxes</strong></span>}
                       {log.boxes_personal > 0 && <span>Personal: <strong className="text-stone-700">{log.boxes_personal} boxes</strong></span>}
                     </div>
@@ -412,18 +411,16 @@ export default function DailyLog() {
                     </p>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
 
-          <div ref={observerTarget} className="h-12 flex items-center justify-center mt-4 border-t border-stone-100 pt-4">
-            {isLoadingHistory && <span className="text-xs text-stone-400 animate-pulse">Loading older coop entries...</span>}
-            {!hasMore && logsSummary.length > 0 && (
-              <span className="text-xs text-stone-400 font-semibold">End daily log entries</span>
-            )}
-          </div>
+          {hasMore && (
+            <div ref={observerTarget} className="mt-4 py-2 text-center">
+              <LoadingSpinner message="Loading more..." size="sm" />
+            </div>
+          )}
         </div>
-
       </div>
     </div>
   );

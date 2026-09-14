@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Header, SidebarMenu } from './components/Navigation';
-import DailyLog from './components/DailyLog';
-import PantryManager from './components/PantryManager';
-import SalesTracker from './components/SalesTracker';
-import FlockManager from './components/FlockManager';
-import Reports from './components/Reports';
+import DailyLog from './pages/DailyLog';
+import PantryManager from './pages/PantryManager';
+import SalesTracker from './pages/SalesTracker';
+import FlockManager from './pages/FlockManager';
+import Reports from './pages/Reports';
 import type { Tab } from './types/types';
 import { DemoProvider } from './context/DemoContext';
 

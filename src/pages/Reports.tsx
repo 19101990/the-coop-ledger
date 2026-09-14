@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 interface YearlyReportRow {
   year: number;
@@ -9,7 +10,7 @@ interface YearlyReportRow {
   isLegacy: boolean;
 }
 
-export default function RecordsSummaryPage() {
+export default function Reports() {
   const [yearlyReport, setYearlyReport] = useState<YearlyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,14 +19,12 @@ export default function RecordsSummaryPage() {
       try {
         setLoading(true);
 
-        // fetch historical records
         const { data: legacyData, error: legacyError } = await supabase
           .from('legacy_yearly_ledger')
           .select('year, eggs_collected, eggs_sold, revenue');
 
         if (legacyError) throw legacyError;
 
-        // fetch active log records
         const { data: liveLogs, error: logsError } = await supabase
           .from('daily_log')
           .select(`
@@ -42,7 +41,6 @@ export default function RecordsSummaryPage() {
 
         if (logsError) throw logsError;
 
-        // fetch active financial data
         const { data: liveSales, error: salesError } = await supabase
           .from('sales')
           .select('date, amount_boxes, price')
@@ -50,10 +48,8 @@ export default function RecordsSummaryPage() {
 
         if (salesError) throw salesError;
 
-        // group live records by year
         const liveYearGroups: Record<number, { collected: number; sold: number; revenue: number }> = {};
 
-        // live egg collections
         liveLogs?.forEach((log) => {
           if (!log.date) return;
           const year = new Date(log.date).getFullYear();
@@ -62,19 +58,18 @@ export default function RecordsSummaryPage() {
             liveYearGroups[year] = { collected: 0, sold: 0, revenue: 0 };
           }
 
-          const dailyCollection = 
-            (log.eggs_chocolate || 0) + 
-            (log.eggs_brown || 0) + 
-            (log.eggs_beige || 0) + 
-            (log.eggs_olive || 0) + 
-            (log.eggs_blue || 0) + 
-            (log.eggs_nato || 0) + 
+          const dailyCollection =
+            (log.eggs_chocolate || 0) +
+            (log.eggs_brown || 0) +
+            (log.eggs_beige || 0) +
+            (log.eggs_olive || 0) +
+            (log.eggs_blue || 0) +
+            (log.eggs_nato || 0) +
             (log.eggs_perlhuhn || 0);
 
           liveYearGroups[year].collected += dailyCollection;
         });
 
-        // live sales from sales table
         liveSales?.forEach((sale) => {
           if (!sale.date) return;
           const year = new Date(sale.date).getFullYear();
@@ -83,14 +78,12 @@ export default function RecordsSummaryPage() {
             liveYearGroups[year] = { collected: 0, sold: 0, revenue: 0 };
           }
 
-          // box quantities into a total piece count
           const eggsSoldInBoxes = Math.round((Number(sale.amount_boxes) || 0) * 10);
 
           liveYearGroups[year].sold += eggsSoldInBoxes;
           liveYearGroups[year].revenue += (Number(sale.price) || 0);
         });
 
-        // format legacy entries
         const formattedLegacy: YearlyReportRow[] = (legacyData || []).map((row) => ({
           year: row.year,
           eggs_collected: row.eggs_collected,
@@ -110,12 +103,10 @@ export default function RecordsSummaryPage() {
           };
         });
 
-        // merge and sort
         const combined = [...formattedLive, ...formattedLegacy];
         const combinedSorted = combined.sort((a, b) => Number(b.year) - Number(a.year));
 
         setYearlyReport(combinedSorted);
-
       } catch (err) {
         console.error('Error compiling comprehensive yearly ledger report:', err);
       } finally {
@@ -135,9 +126,7 @@ export default function RecordsSummaryPage() {
         </div>
 
         {loading ? (
-          <div className="text-stone-400 text-xs py-4 animate-pulse">
-            Calculating historical and real-time matrix totals...
-          </div>
+          <LoadingSpinner message="Calculating historical and real-time matrix totals..." size="sm" />
         ) : yearlyReport.length === 0 ? (
           <div className="text-stone-400 text-xs py-4">
             No production records found.
