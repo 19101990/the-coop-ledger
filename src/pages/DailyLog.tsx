@@ -25,6 +25,7 @@ export default function DailyLog() {
   const [boxesForSale, setBoxesForSale] = useState('');
   const [boxesForPersonal, setBoxesForPersonal] = useState('');
   const [logNotes, setLogNotes] = useState('');
+  const [editingLogId, setEditingLogId] = useState<number | null>(null);
 
   const [logsSummary, setLogsSummary] = useState<DBLogEntry[]>([]);
   const [page, setPage] = useState(0);
@@ -108,7 +109,6 @@ export default function DailyLog() {
 
   useEffect(() => {
     const currentElement = observerTarget.current;
-
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoadingHistory) {
@@ -118,10 +118,7 @@ export default function DailyLog() {
       { threshold: 1.0 }
     );
 
-    if (currentElement) {
-      observer.observe(currentElement);
-    }
-
+    if (currentElement) observer.observe(currentElement);
     return () => {
       if (currentElement) observer.unobserve(currentElement);
     };
@@ -164,71 +161,93 @@ export default function DailyLog() {
     );
   };
 
+  const handleEditClick = (log: DBLogEntry) => {
+    setEditingLogId(log.id);
+    setSaleDate(log.date);
+    setEggCollected({
+      chocolate: log.eggs_chocolate,
+      brown: log.eggs_brown,
+      beige: log.eggs_beige,
+      olive: log.eggs_olive,
+      blue: log.eggs_blue,
+      nato: log.eggs_nato,
+      perlhuhn: log.eggs_perlhuhn
+    });
+    setBoxesForSale(log.boxes_for_sale ? log.boxes_for_sale.toString() : '');
+    setBoxesForPersonal(log.boxes_personal ? log.boxes_personal.toString() : '');
+    setLogNotes(log.notes || '');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLogId(null);
+    setSaleDate(getTodayString());
+    setBoxesForSale('');
+    setBoxesForPersonal('');
+    setLogNotes('');
+    setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
+  };
+
   const handleSaveDailyLog = async () => {
     const finalDateString = saleDate;
+    const packedForSale = parseInt(boxesForSale) || 0;
+    const packedPersonal = parseInt(boxesForPersonal) || 0;
 
     // 🛑 DEMO MODE
     if (isDemo) {
-      const newEntry: DBLogEntry = {
-        id: Date.now(),
-        created_at: new Date().toISOString(),
-        date: finalDateString,
-        eggs_chocolate: eggCollected.chocolate,
-        eggs_brown: eggCollected.brown,
-        eggs_beige: eggCollected.beige,
-        eggs_olive: eggCollected.olive,
-        eggs_blue: eggCollected.blue,
-        eggs_nato: eggCollected.nato,
-        eggs_perlhuhn: eggCollected.perlhuhn,
-        boxes_for_sale: parseInt(boxesForSale) || 0,
-        boxes_personal: parseInt(boxesForPersonal) || 0,
-        notes: logNotes.trim() || null
-      };
+      let updatedLogs: DBLogEntry[];
+      if (editingLogId !== null) {
+        updatedLogs = logsSummary.map(log => 
+          log.id === editingLogId 
+            ? {
+                ...log,
+                date: finalDateString,
+                eggs_chocolate: eggCollected.chocolate,
+                eggs_brown: eggCollected.brown,
+                eggs_beige: eggCollected.beige,
+                eggs_olive: eggCollected.olive,
+                eggs_blue: eggCollected.blue,
+                eggs_nato: eggCollected.nato,
+                eggs_perlhuhn: eggCollected.perlhuhn,
+                boxes_for_sale: packedForSale,
+                boxes_personal: packedPersonal,
+                notes: logNotes.trim() || null
+              }
+            : log
+        );
+        triggerDemoToast('Demo Mode: Daily log updated locally! 🥚');
+      } else {
+        const newEntry: DBLogEntry = {
+          id: Date.now(),
+          created_at: new Date().toISOString(),
+          date: finalDateString,
+          eggs_chocolate: eggCollected.chocolate,
+          eggs_brown: eggCollected.brown,
+          eggs_beige: eggCollected.beige,
+          eggs_olive: eggCollected.olive,
+          eggs_blue: eggCollected.blue,
+          eggs_nato: eggCollected.nato,
+          eggs_perlhuhn: eggCollected.perlhuhn,
+          boxes_for_sale: packedForSale,
+          boxes_personal: packedPersonal,
+          notes: logNotes.trim() || null
+        };
+        updatedLogs = [newEntry, ...logsSummary];
+        triggerDemoToast('Demo Mode: Daily log saved locally! 🥚');
+      }
 
-      const updatedLogs = [newEntry, ...logsSummary];
       setLogsSummary(updatedLogs);
       localStorage.setItem('demo_daily_logs', JSON.stringify(updatedLogs));
-
-      triggerDemoToast('Demo Mode: Daily log saved locally! 🥚');
-
-      setSaleDate(getTodayString());
-      setBoxesForSale('');
-      setBoxesForPersonal('');
-      setLogNotes('');
-      setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
+      handleCancelEdit();
       return;
     }
 
     // 🟢 LIVE MODE
     try {
-      const { data: pantryData, error: pantryError } = await supabase
-        .from('pantry_inventory')
-        .select('*')
-        .order('last_updated', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (pantryError) throw pantryError;
-
-      let currentSaleBoxes = pantryData?.boxes_for_sale || 0;
-      let currentPersonalBoxes = pantryData?.boxes_personal || 0;
-      let currentLoose = pantryData?.loose_eggs || 0;
-
-      const totalCollected = calculateDailyTotal(eggCollected);
-      const packedForSale = parseInt(boxesForSale) || 0;
-      const packedPersonal = parseInt(boxesForPersonal) || 0;
-
-      const eggsUsedForPacking = (packedForSale * 10) + (packedPersonal * 10);
-      const netLooseChange = totalCollected - eggsUsedForPacking;
-
-      const newLoose = currentLoose + netLooseChange;
-      const newSaleBoxes = currentSaleBoxes + packedForSale;
-      const newPersonalBoxes = currentPersonalBoxes + packedPersonal;
-
-      const { data: logData, error: logError } = await supabase
-        .from('daily_log')
-        .insert([
-          {
+      if (editingLogId !== null) {
+        const { error: updateError } = await supabase
+          .from('daily_log')
+          .update({
             date: finalDateString,
             eggs_chocolate: eggCollected.chocolate,
             eggs_brown: eggCollected.brown,
@@ -240,38 +259,99 @@ export default function DailyLog() {
             boxes_for_sale: packedForSale,
             boxes_personal: packedPersonal,
             notes: logNotes.trim() || null
-          }
-        ])
-        .select();
+          })
+          .eq('id', editingLogId);
 
-      if (logError) throw logError;
+        if (updateError) throw updateError;
+        triggerDemoToast('Live Mode: Daily log updated! 🥚');
+      } else {
+        const { data: pantryData, error: pantryError } = await supabase
+          .from('pantry_inventory')
+          .select('*')
+          .order('last_updated', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      const { error: updatePantryError } = await supabase
-        .from('pantry_inventory')
-        .insert([
-          {
-            boxes_for_sale: newSaleBoxes,
-            boxes_personal: newPersonalBoxes,
-            loose_eggs: newLoose
-          }
-        ]);
+        if (pantryError) throw pantryError;
 
-      if (updatePantryError) throw updatePantryError;
+        let currentSaleBoxes = pantryData?.boxes_for_sale || 0;
+        let currentPersonalBoxes = pantryData?.boxes_personal || 0;
+        let currentLoose = pantryData?.loose_eggs || 0;
 
-      if (logData) {
+        const totalCollected = calculateDailyTotal(eggCollected);
+        const eggsUsedForPacking = (packedForSale * 10) + (packedPersonal * 10);
+        const netLooseChange = totalCollected - eggsUsedForPacking;
+
+        const newLoose = currentLoose + netLooseChange;
+        const newSaleBoxes = currentSaleBoxes + packedForSale;
+        const newPersonalBoxes = currentPersonalBoxes + packedPersonal;
+
+        const { error: logError } = await supabase
+          .from('daily_log')
+          .insert([
+            {
+              date: finalDateString,
+              eggs_chocolate: eggCollected.chocolate,
+              eggs_brown: eggCollected.brown,
+              eggs_beige: eggCollected.beige,
+              eggs_olive: eggCollected.olive,
+              eggs_blue: eggCollected.blue,
+              eggs_nato: eggCollected.nato,
+              eggs_perlhuhn: eggCollected.perlhuhn,
+              boxes_for_sale: packedForSale,
+              boxes_personal: packedPersonal,
+              notes: logNotes.trim() || null
+            }
+          ]);
+
+        if (logError) throw logError;
+
+        const { error: updatePantryError } = await supabase
+          .from('pantry_inventory')
+          .insert([
+            {
+              boxes_for_sale: newSaleBoxes,
+              boxes_personal: newPersonalBoxes,
+              loose_eggs: newLoose
+            }
+          ]);
+
+        if (updatePantryError) throw updatePantryError;
         triggerDemoToast('Live Mode: Daily log and Pantry saved! 🥚');
-
-        setSaleDate(getTodayString());
-        setBoxesForSale('');
-        setBoxesForPersonal('');
-        setLogNotes('');
-        setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
-
-        await refreshLogHistory();
       }
+
+      handleCancelEdit();
+      await refreshLogHistory();
     } catch (err: any) {
       console.error('Unexpected tracking error:', err);
       alert(`Transaction Failed: ${err.message}`);
+    }
+  };
+
+  const handleDeleteLog = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this daily log entry?')) return;
+
+    if (isDemo) {
+      const updatedLogs = logsSummary.filter(log => log.id !== id);
+      setLogsSummary(updatedLogs);
+      localStorage.setItem('demo_daily_logs', JSON.stringify(updatedLogs));
+      triggerDemoToast('Demo Mode: Daily log deleted locally! 🗑️');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('daily_log')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      triggerDemoToast('Live Mode: Daily log deleted! 🗑️');
+      await refreshLogHistory();
+    } catch (err: any) {
+      console.error('Unexpected deletion error:', err);
+      alert(`Deletion Failed: ${err.message}`);
     }
   };
 
@@ -279,7 +359,17 @@ export default function DailyLog() {
     <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 animate-fade-in">
       <div className="flex flex-col gap-6">
         <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <SectionHeader emoji="🐔" title="Daily Coop Log" />
+          <div className="flex justify-between items-center mb-4">
+            <SectionHeader emoji="🐔" title={editingLogId ? "Edit Daily Log" : "Daily Coop Log"} />
+            {editingLogId && (
+              <button
+                onClick={handleCancelEdit}
+                className="text-xs px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
 
           <DateSelector
             value={saleDate}
@@ -302,14 +392,14 @@ export default function DailyLog() {
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => adjustEggCount(variety as EggVariety, -1)}
-                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded"
+                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded cursor-pointer"
                     >
                       −
                     </button>
                     <span className="w-6 text-center font-bold text-sm">{count}</span>
                     <button
                       onClick={() => adjustEggCount(variety as EggVariety, 1)}
-                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded"
+                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded cursor-pointer"
                     >
                       +
                     </button>
@@ -364,9 +454,9 @@ export default function DailyLog() {
 
           <button
             onClick={handleSaveDailyLog}
-            className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs"
+            className={`w-full font-bold py-3 px-4 rounded-xl transition-colors shadow-xs text-white cursor-pointer ${editingLogId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'}`}
           >
-            Save Daily Log
+            {editingLogId ? 'Update Daily Log Entry' : 'Save Daily Log'}
           </button>
         </div>
 
@@ -379,15 +469,30 @@ export default function DailyLog() {
             <div className="space-y-3">
               {logsSummary.map((log) => (
                 <div key={log.id} className="p-4 bg-stone-50 rounded-xl border border-stone-150">
-                  <div className="flex justify-between items-center border-b border-stone-200 pb-2 mb-3">
-                    <span className="font-bold text-stone-800">
-                      {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                    </span>
-                    <span className="bg-amber-100 text-amber-900 font-extrabold text-xs px-2.5 py-1 rounded-full">
-                      Total: {calculateDailyTotal(log)} Eggs
-                    </span>
-                  </div>
-
+                    <div className="flex text-xs font-medium text-stone-600 mb-3 justify-between items-start">
+                        <div className="flex flex-col justify-between items-start pb-2">
+                            <span className="font-bold text-stone-800">
+                                {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                            </span>
+                            <span className="text-amber-900 font-bold text-xs">
+                                Total: {calculateDailyTotal(log)} Eggs
+                            </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => handleEditClick(log)}
+                                className="text-xs px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold rounded-md transition-colors cursor-pointer"
+                            >
+                                Edit
+                            </button>
+                            <button
+                                onClick={() => handleDeleteLog(log.id)}
+                                className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-md transition-colors cursor-pointer"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium text-stone-600 mb-3">
                     {log.eggs_chocolate > 0 && <div>Chocolate: <span className="font-bold text-stone-900">{log.eggs_chocolate}</span></div>}
                     {log.eggs_brown > 0 && <div>Brown: <span className="font-bold text-stone-900">{log.eggs_brown}</span></div>}
