@@ -22,14 +22,14 @@ export default function CounterControl({
       <div className="flex items-center space-x-3">
         <button
           onClick={onDecrement}
-          className="w-10 h-10 bg-white active:bg-stone-100 text-stone-600 font-bold text-xl rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
+          className="w-8 h-8 bg-white active:bg-stone-100 text-stone-600 text-lg rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
         >
           -
         </button>
-        <span className="w-8 text-center font-bold text-lg text-stone-900">{value}</span>
+        <span className="w-8 text-center font-bold text-md text-stone-900">{value}</span>
         <button
           onClick={onIncrement}
-          className="w-10 h-10 bg-white active:bg-stone-100 text-stone-600 font-bold text-xl rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
+          className="w-8 h-8 bg-white active:bg-stone-100 text-stone-600 text-lg rounded-lg border border-stone-200 flex items-center justify-center shadow-xs select-none"
         >
           +
         </button>

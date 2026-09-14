@@ -5,6 +5,7 @@ import { useDemo } from '../context/DemoContext';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
+import CounterControl from '../components/CounterControl';
 
 export default function DailyLog() {
   const getTodayString = (): string => {
@@ -17,6 +18,7 @@ export default function DailyLog() {
     chocolate: 0,
     brown: 0,
     beige: 0,
+    white: 0,
     blue: 0,
     olive: 0,
     nato: 0,
@@ -144,6 +146,7 @@ export default function DailyLog() {
         (log.eggs_chocolate || 0) +
         (log.eggs_brown || 0) +
         (log.eggs_beige || 0) +
+        (log.eggs_white || 0) +
         (log.eggs_olive || 0) +
         (log.eggs_blue || 0) +
         (log.eggs_nato || 0) +
@@ -168,6 +171,7 @@ export default function DailyLog() {
       chocolate: log.eggs_chocolate,
       brown: log.eggs_brown,
       beige: log.eggs_beige,
+      white: log.eggs_white,
       olive: log.eggs_olive,
       blue: log.eggs_blue,
       nato: log.eggs_nato,
@@ -185,7 +189,7 @@ export default function DailyLog() {
     setBoxesForSale('');
     setBoxesForPersonal('');
     setLogNotes('');
-    setEggCollected({ chocolate: 0, brown: 0, beige: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
+    setEggCollected({ chocolate: 0, brown: 0, beige: 0, white: 0, blue: 0, olive: 0, nato: 0, perlhuhn: 0 });
   };
 
   const handleSaveDailyLog = async () => {
@@ -205,6 +209,7 @@ export default function DailyLog() {
                 eggs_chocolate: eggCollected.chocolate,
                 eggs_brown: eggCollected.brown,
                 eggs_beige: eggCollected.beige,
+                eggs_white: eggCollected.white,
                 eggs_olive: eggCollected.olive,
                 eggs_blue: eggCollected.blue,
                 eggs_nato: eggCollected.nato,
@@ -224,6 +229,7 @@ export default function DailyLog() {
           eggs_chocolate: eggCollected.chocolate,
           eggs_brown: eggCollected.brown,
           eggs_beige: eggCollected.beige,
+          eggs_white: eggCollected.white,
           eggs_olive: eggCollected.olive,
           eggs_blue: eggCollected.blue,
           eggs_nato: eggCollected.nato,
@@ -252,6 +258,7 @@ export default function DailyLog() {
             eggs_chocolate: eggCollected.chocolate,
             eggs_brown: eggCollected.brown,
             eggs_beige: eggCollected.beige,
+            eggs_white: eggCollected.white,
             eggs_olive: eggCollected.olive,
             eggs_blue: eggCollected.blue,
             eggs_nato: eggCollected.nato,
@@ -294,6 +301,7 @@ export default function DailyLog() {
               eggs_chocolate: eggCollected.chocolate,
               eggs_brown: eggCollected.brown,
               eggs_beige: eggCollected.beige,
+              eggs_white: eggCollected.white,
               eggs_olive: eggCollected.olive,
               eggs_blue: eggCollected.blue,
               eggs_nato: eggCollected.nato,
@@ -383,29 +391,18 @@ export default function DailyLog() {
             </label>
 
             <div className="grid grid-cols-1 gap-3">
-              {Object.entries(eggCollected).map(([variety, count]) => (
-                <div key={variety} className="flex items-center space-x-2 bg-stone-50 p-3 rounded-xl border border-stone-150">
-                  <div className="flex-1">
-                    <p className="font-semibold text-stone-900 text-sm">{handleEggVarietyLabel(variety)}</p>
-                    <p className="text-xs text-stone-400">Collected</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => adjustEggCount(variety as EggVariety, -1)}
-                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded cursor-pointer"
-                    >
-                      −
-                    </button>
-                    <span className="w-6 text-center font-bold text-sm">{count}</span>
-                    <button
-                      onClick={() => adjustEggCount(variety as EggVariety, 1)}
-                      className="w-6 h-6 text-xs font-bold text-stone-600 bg-white hover:bg-stone-100 border border-stone-200 rounded cursor-pointer"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))}
+              <div className="grid grid-cols-1 gap-3">
+                {Object.entries(eggCollected).map(([variety, count]) => (
+                    <CounterControl
+                    key={variety}
+                    label={handleEggVarietyLabel(variety)}
+                    description="Collected"
+                    value={count}
+                    onDecrement={() => adjustEggCount(variety as EggVariety, -1)}
+                    onIncrement={() => adjustEggCount(variety as EggVariety, 1)}
+                    />
+                ))}
+              </div>
             </div>
             <p className="text-xs text-right text-stone-500 mt-2">Total: {calculateDailyTotal(eggCollected)} eggs</p>
           </div>
@@ -497,6 +494,7 @@ export default function DailyLog() {
                     {log.eggs_chocolate > 0 && <div>Chocolate: <span className="font-bold text-stone-900">{log.eggs_chocolate}</span></div>}
                     {log.eggs_brown > 0 && <div>Brown: <span className="font-bold text-stone-900">{log.eggs_brown}</span></div>}
                     {log.eggs_beige > 0 && <div>Beige: <span className="font-bold text-stone-900">{log.eggs_beige}</span></div>}
+                    {log.eggs_white > 0 && <div>White: <span className="font-bold text-stone-900">{log.eggs_white}</span></div>}
                     {log.eggs_olive > 0 && <div>Olive: <span className="font-bold text-stone-900">{log.eggs_olive}</span></div>}
                     {log.eggs_blue > 0 && <div>Blue: <span className="font-bold text-stone-900">{log.eggs_blue}</span></div>}
                     {log.eggs_nato > 0 && <div>Nato: <span className="font-bold text-stone-900">{log.eggs_nato}</span></div>}

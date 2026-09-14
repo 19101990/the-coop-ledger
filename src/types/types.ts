@@ -1,4 +1,4 @@
-export type EggVariety = 'chocolate' | 'brown' | 'beige' | 'blue' | 'olive' | 'nato' | 'perlhuhn';
+export type EggVariety = 'chocolate' | 'brown' | 'beige' | 'white' | 'blue' | 'olive' | 'nato' | 'perlhuhn';
 
 export type Tab = 'daily-log' | 'pantry' | 'sales' | 'flock' | 'reports';
 
@@ -6,6 +6,7 @@ export interface EggCounts {
   chocolate: number;
   brown: number;
   beige: number;
+  white: number;
   blue: number;
   olive: number;
   nato: number;
@@ -34,6 +35,7 @@ export interface DBLogEntry {
   eggs_chocolate: number;
   eggs_brown: number;
   eggs_beige: number;
+  eggs_white: number;
   eggs_olive: number;
   eggs_blue: number;
   eggs_nato: number;
