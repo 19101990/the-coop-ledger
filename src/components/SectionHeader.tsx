@@ -15,7 +15,7 @@ export default function SectionHeader({
   action
 }: SectionHeaderProps) {
   return (
-    <div className="flex flex-col items-start justify-between gap-3 mb-5">
+    <div className="flex flex-col items-start justify-between gap-2 mb-4">
       <div>
         <h2 className="text-lg font-bold text-stone-900 mb-1">
           {emoji && <span className="mr-2">{emoji}</span>}
@@ -29,7 +29,7 @@ export default function SectionHeader({
       {action && (
         <button
           onClick={action.onClick}
-          className="text-xs text-amber-700 font-medium hover:underline"
+          className="text-xs mb-5 text-amber-700 font-medium hover:underline"
         >
           {action.label}
         </button>

@@ -367,7 +367,7 @@ export default function DailyLog() {
     <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 animate-fade-in">
       <div className="flex flex-col gap-6">
         <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center">
             <SectionHeader emoji="🐔" title={editingLogId ? "Edit Daily Log" : "Daily Coop Log"} />
             {editingLogId && (
               <button

@@ -262,7 +262,7 @@ export default function TransactionsTracker() {
       
       {/* SUMMARY SECTION */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex flex-col justify-between items-start mb-5 gap-4">
+        <div className="flex flex-col justify-between items-start mb-4">
           <SectionHeader emoji="📊" title="Financial Summary" />
           <div className="flex bg-stone-100 p-1 rounded-xl w-full">
             {(['month', 'ytd', 'all'] as const).map(frame => (

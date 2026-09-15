@@ -120,8 +120,8 @@ export default function Reports() {
   return (
     <div className="space-y-6 p-4">
       <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="mb-4">
-          <h3 className="text-sm font-bold text-stone-900">📊 Comprehensive Yearly Ledger</h3>
+        <div className="mb-6">
+          <h2 className="text-lg font-bold text-stone-900 mb-1">📊 Comprehensive Yearly Ledger</h2>
           <p className="text-xs text-stone-500">Unified view combining legacy metrics and dynamic app data</p>
         </div>
 
