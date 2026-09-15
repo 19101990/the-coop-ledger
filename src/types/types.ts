@@ -67,3 +67,23 @@ export interface TransactionEntry {
   description: string | null;
   amount: number;
 }
+
+export interface Breed {
+  id: number;
+  name: string;
+}
+
+export interface FlockMember {
+  id: number | string;
+  breed: string;
+  hatch_date: string | null;
+  birth_year: number | null;
+  sex: 'Hen' | 'Rooster';
+  color: string | null;
+  band_number: string | null;
+  name: string | null;
+  notes: string | null;
+  status: 'Active' | 'Archived';
+  archive_date: string | null;
+  archive_reason: string | null;
+}

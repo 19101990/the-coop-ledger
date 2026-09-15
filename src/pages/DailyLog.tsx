@@ -407,7 +407,7 @@ export default function DailyLog() {
             <p className="text-xs text-right text-stone-500 mt-2">Total: {calculateDailyTotal(eggCollected)} eggs</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-1 gap-3 mb-6">
             <div>
               <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
                 Boxes for Sale
