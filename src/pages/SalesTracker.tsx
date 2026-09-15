@@ -179,6 +179,21 @@ export default function SalesTracker() {
       setSalesLog(updatedLog);
 
       localStorage.setItem('demo_sales_ledger', JSON.stringify(updatedLog));
+
+      if (paymentStatus === 'Paid' && finalPrice > 0) {
+        const currentTx = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
+        const autoTx = {
+          id: Date.now(),
+          date: finalDate || new Date().toISOString().split('T')[0],
+          type: 'income',
+          category: 'Egg Sales',
+          description: `Sold ${rawEggs} eggs to ${selectedCustomer}`,
+          amount: finalPrice
+        };
+        const updatedTx = [autoTx, ...currentTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        localStorage.setItem('demo_transactions', JSON.stringify(updatedTx));
+      }
+
       triggerDemoToast("Demo Mode: Sale saved to LocalStorage!");
 
       return;
@@ -239,6 +254,23 @@ export default function SalesTracker() {
         ]);
 
       if (updatePantryError) throw updatePantryError;
+      if (paymentStatus === 'Paid' && finalPrice > 0) {
+        const { error: txError } = await supabase
+          .from('transactions')
+          .insert([
+            {
+              date: finalDate || new Date().toISOString().split('T')[0],
+              type: 'income',
+              category: 'Egg Sales',
+              description: `Sold ${rawEggs} eggs to ${selectedCustomer}`,
+              amount: finalPrice
+            }
+          ]);
+
+        if (txError) {
+          console.error('Failed to log automatic transaction:', txError.message);
+        }
+      }
 
       if (saleData && saleData.length > 0) {
         const databaseSale = saleData[0];
@@ -281,7 +313,7 @@ export default function SalesTracker() {
             <button
               type="button"
               onClick={() => setShowAddCustomer(!showAddCustomer)}
-              className="text-xs text-amber-700 font-medium hover:underline"
+              className="text-xs text-amber-700 font-medium hover:underline cursor-pointer"
             >
               {showAddCustomer ? 'Cancel' : '+ Add New Customer'}
             </button>
@@ -309,7 +341,7 @@ export default function SalesTracker() {
               />
               <button
                 type="submit"
-                className="bg-stone-800 text-white text-xs px-4 rounded-xl hover:bg-stone-900 font-semibold"
+                className="bg-stone-800 text-white text-xs px-4 rounded-xl hover:bg-stone-900 font-semibold cursor-pointer"
               >
                 Save
               </button>
@@ -359,14 +391,14 @@ export default function SalesTracker() {
             <button
               type="button"
               onClick={() => setPaymentStatus('Paid')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors ${paymentStatus === 'Paid' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
+              className={`py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${paymentStatus === 'Paid' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
             >
               Paid
             </button>
             <button
               type="button"
               onClick={() => setPaymentStatus('Gift')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors ${paymentStatus === 'Gift' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
+              className={`py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${paymentStatus === 'Gift' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
             >
               Gift (Free)
             </button>
@@ -381,7 +413,7 @@ export default function SalesTracker() {
 
         <button
           onClick={handleSaveSale}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs"
+          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs cursor-pointer mt-4"
         >
           Submit Transaction
         </button>

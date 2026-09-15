@@ -5,6 +5,7 @@ import PantryManager from './pages/PantryManager';
 import SalesTracker from './pages/SalesTracker';
 import FlockManager from './pages/FlockManager';
 import Reports from './pages/Reports';
+import TransactionsTracker from './pages/TransactionsTracker';
 import type { Tab } from './types/types';
 import { DemoProvider } from './context/DemoContext';
 
@@ -30,6 +31,7 @@ function App() {
           {activeTab === 'pantry' && <PantryManager />}
           {activeTab === 'sales' && <SalesTracker />}
           {activeTab === 'flock' && <FlockManager />}
+          {activeTab === 'transactions' && <TransactionsTracker />}
           {activeTab === 'reports' && <Reports />}
         </main>
       </div>

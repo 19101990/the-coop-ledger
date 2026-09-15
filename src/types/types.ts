@@ -1,6 +1,6 @@
 export type EggVariety = 'chocolate' | 'brown' | 'beige' | 'white' | 'blue' | 'olive' | 'nato' | 'perlhuhn';
 
-export type Tab = 'daily-log' | 'pantry' | 'sales' | 'flock' | 'reports';
+export type Tab = 'daily-log' | 'pantry' | 'sales' | 'flock' | 'transactions' | 'reports';
 
 export interface EggCounts {
   chocolate: number;
@@ -51,4 +51,19 @@ export interface LegacyYearlyEntry {
   eggs_collected: number;
   eggs_sold: number;
   revenue: number;
+}
+
+export interface TransactionCategory {
+  id: number;
+  name: string;
+  type: 'income' | 'expense';
+}
+
+export interface TransactionEntry {
+  id: number;
+  date: string;
+  type: 'income' | 'expense';
+  category: string;
+  description: string | null;
+  amount: number;
 }

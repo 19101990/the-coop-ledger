@@ -152,6 +152,7 @@ export function SidebarMenu({ activeTab, setActiveTab, setIsMenuOpen }: SidebarM
     { id: 'pantry', name: '📦 Pantry Manager' },
     { id: 'sales', name: '💰 Sales Tracker' },
     { id: 'flock', name: '🐤 Flock Manager' },
+    { id: 'transactions', name: '💰 Transactions' },
     { id: 'reports', name: '📊 Reports & Analytics' }
   ] as const;
 
