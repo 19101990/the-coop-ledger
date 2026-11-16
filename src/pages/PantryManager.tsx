@@ -5,6 +5,7 @@ import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FormInput from '../components/FormInput';
 import SectionHeader from '../components/SectionHeader';
+import PageContainer from '../components/PageContainer';
 
 export default function PantryManager() {
   const { isDemo } = useDemo();
@@ -115,7 +116,7 @@ export default function PantryManager() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PageContainer>
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <SectionHeader
           emoji="📦"
@@ -240,6 +241,6 @@ export default function PantryManager() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

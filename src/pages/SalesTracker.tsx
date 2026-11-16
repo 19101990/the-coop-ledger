@@ -5,6 +5,7 @@ import type { SaleEntry } from '../types/types';
 import SectionHeader from '../components/SectionHeader';
 import DateSelector from '../components/DateSelector';
 import { demoStore } from '../demo/demoStore';
+import PageContainer from '../components/PageContainer';
 
 interface SaleRow {
   id: number | string;
@@ -315,7 +316,7 @@ export default function SalesTracker() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <PageContainer>
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <SectionHeader emoji="💰" title="Log a Sale" />
 
@@ -463,6 +464,6 @@ export default function SalesTracker() {
           </table>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

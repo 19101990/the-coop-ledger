@@ -6,6 +6,7 @@ import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
 import type { FlockMember } from '../types/types';
+import PageContainer from '../components/PageContainer';
 
 export default function FlockManager() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
@@ -227,7 +228,7 @@ export default function FlockManager() {
   if (isLoading) return <LoadingSpinner message="Loading flock data..." size="md" />;
 
   return (
-    <div className="w-full max-w-lg mx-auto p-4 animate-fade-in space-y-6">
+    <PageContainer>
       
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <SectionHeader emoji="🐓" title="Flock Census" />
@@ -415,6 +416,6 @@ export default function FlockManager() {
         </details>
       )}
 
-    </div>
+    </PageContainer>
   );
 }

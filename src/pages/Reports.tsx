@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PageContainer from '../components/PageContainer';
 
 // Live app data starts here; earlier years come from legacy_yearly_ledger.
 const LIVE_DATA_START = '2026-01-01';
@@ -148,8 +149,8 @@ export default function Reports() {
   }, [isDemo]);
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
+    <PageContainer>
+      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
         <div className="mb-6">
           <h2 className="text-lg font-bold text-stone-900 mb-1">📊 Comprehensive Yearly Ledger</h2>
           <p className="text-xs text-stone-500">Unified view combining legacy metrics and dynamic app data</p>
@@ -197,6 +198,6 @@ export default function Reports() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }
