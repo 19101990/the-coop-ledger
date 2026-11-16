@@ -1,5 +1,5 @@
 import type { TransactionEntry } from '../types/types';
-import { formatDayMonthMaybeYear, formatEUR, formatSignedEUR } from '../utils/format';
+import { formatDayMonthMaybeYear, formatEUR } from '../utils/format';
 import { signedAmount } from '../utils/transactions';
 
 interface TransactionRowProps {
@@ -28,7 +28,7 @@ export default function TransactionRow({ tx, balance, onClick }: TransactionRowP
       <span
         className={`min-w-[76px] text-right font-mono text-sm tabular-nums ${tx.type === 'income' ? 'text-income' : 'text-expense'}`}
       >
-        {formatSignedEUR(signedAmount(tx))}
+        {formatEUR(signedAmount(tx))}
       </span>
       {withBalance && (
         <span className="min-w-[76px] text-right font-mono text-xs text-muted tabular-nums">{formatEUR(balance)}</span>

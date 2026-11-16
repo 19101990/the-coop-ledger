@@ -1,4 +1,5 @@
-const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' });
+// Number part only (nl-NL: "1.234,50"); the € sign is added by formatEUR without a gap.
+const eurNumber = new Intl.NumberFormat('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -36,12 +37,15 @@ export const formatMonthShort = ({ year, month }: YearMonth) => `${MONTHS[month]
 export const formatMonthLong = ({ month }: YearMonth) => MONTHS_LONG[month];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** "€ 6,00" */
-export const formatEUR = (n: number): string => eur.format(n);
-
-/** "+€ 6,00" / "−€ 6,00" (true minus sign) / "€ 0,00" */
-export const formatSignedEUR = (n: number): string =>
-  (n > 0 ? '+' : n < 0 ? '−' : '') + eur.format(Math.abs(n));
+/**
+ * Money: "€6,00", "€1.234,50"; negatives as "− €6,00" (true minus sign, then a space).
+ * No plus sign for positive amounts — an unsigned amount is income/positive.
+ */
+export const formatEUR = (n: number): string => {
+  const amount = `€${eurNumber.format(Math.abs(n))}`;
+  // Treat values that round to 0,00 as zero so we never show "− €0,00".
+  return Math.round(n * 100) < 0 ? `− ${amount}` : amount;
+};
 
 // Parse YYYY-MM-DD as a local date (midday avoids DST/timezone edge cases).
 const parseISODate = (iso: string): Date => new Date(`${iso.slice(0, 10)}T12:00:00`);

@@ -409,7 +409,7 @@ export default function SalesTracker() {
           </Field>
           <Field label={`Price · ${priceHint}`}>
             <label
-              className={`flex h-11 items-center gap-1.5 rounded-lg border border-edge bg-app px-3 focus-within:border-ink ${
+              className={`flex h-11 items-center gap-px rounded-lg border border-edge bg-app px-3 focus-within:border-ink ${
                 paymentStatus === 'Gift' ? 'opacity-50' : ''
               }`}
             >
@@ -456,7 +456,7 @@ export default function SalesTracker() {
                   <span className="rounded-md bg-gift-bg px-2 py-0.5 font-mono text-sm text-gift">Gift</span>
                 ) : (
                   <span className="rounded-md bg-income-bg px-2 py-0.5 font-mono text-sm text-income tabular-nums">
-                    +{formatEUR(sale.price)}
+                    {formatEUR(sale.price)}
                   </span>
                 )}
               </div>

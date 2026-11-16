@@ -9,7 +9,7 @@ import PageContainer from '../components/PageContainer';
 import Sheet from '../components/Sheet';
 import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
 import { inputClass } from '../components/uiStyles';
-import { formatEUR, formatFullDate, formatSignedEUR } from '../utils/format';
+import { formatEUR, formatFullDate } from '../utils/format';
 import { compareNewestFirst, signedAmount } from '../utils/transactions';
 import TransactionRow from '../components/TransactionRow';
 import NetResultCard from '../components/NetResultCard';
@@ -271,7 +271,7 @@ export default function TransactionsTracker() {
               </Select>
             </Field>
             <Field label="Amount">
-              <label className="flex h-11 items-center gap-1.5 rounded-lg border border-edge bg-app px-3 focus-within:border-ink">
+              <label className="flex h-11 items-center gap-px rounded-lg border border-edge bg-app px-3 focus-within:border-ink">
                 <span className="font-mono text-muted">€</span>
                 <input
                   type="number"
@@ -378,7 +378,7 @@ export default function TransactionsTracker() {
             <div className="flex items-baseline justify-between border-b border-ink pb-2">
               <span className="text-[13px] text-muted">{selected.type === 'income' ? 'Income' : 'Expense'}</span>
               <span className={`font-mono text-[32px] font-medium tracking-[-.03em] tabular-nums ${amountClass(selected)}`}>
-                {formatSignedEUR(signed(selected))}
+                {formatEUR(signed(selected))}
               </span>
             </div>
 

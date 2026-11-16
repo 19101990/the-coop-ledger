@@ -14,7 +14,6 @@ import {
   formatDayMonthMaybeYear,
   formatEUR,
   formatMonthLong,
-  formatSignedEUR,
   monthRange,
   type YearMonth,
 } from '../utils/format';
@@ -280,7 +279,7 @@ function CategoriesSection({ monthTransactions, monthName }: { monthTransactions
                   {g.label}
                 </span>
                 <span className={`font-mono tabular-nums ${g.type === 'income' ? 'text-income' : 'text-expense'}`}>
-                  {formatSignedEUR(g.type === 'income' ? g.total : -g.total)}
+                  {formatEUR(g.type === 'income' ? g.total : -g.total)}
                 </span>
               </div>
               {g.rows.map(([name, value]) => (

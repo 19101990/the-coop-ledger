@@ -1,4 +1,4 @@
-import { formatEUR, formatSignedEUR } from '../utils/format';
+import { formatEUR } from '../utils/format';
 
 interface NetResultCardProps {
   /** e.g. "November" or "this year" */
@@ -17,7 +17,7 @@ export default function NetResultCard({ periodLabel, income, expense }: NetResul
       <div className="flex flex-col gap-1.5">
         <span className="text-xs text-on-dark-muted">Net result · {periodLabel}</span>
         <span className="font-mono text-[38px] font-medium tracking-[-.03em] tabular-nums">
-          {formatSignedEUR(income - expense)}
+          {formatEUR(income - expense)}
         </span>
       </div>
       <div className="flex h-1.5 overflow-hidden rounded-[3px] bg-expense-on-dark">
