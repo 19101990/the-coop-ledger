@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
@@ -37,8 +38,16 @@ export default function FlockManager() {
   // Load Data
   useEffect(() => {
     const fetchData = async () => {
+      // 🛑 DEMO MODE — sample flock only
+      if (isDemo) {
+        setBreeds(demoStore.getBreeds());
+        setFlock(demoStore.getFlock());
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
-      
+
       try {
         const [breedsRes, flockRes] = await Promise.all([
           supabase.from('breeds').select('name').order('name'),
@@ -54,7 +63,7 @@ export default function FlockManager() {
       }
     };
     fetchData();
-  }, []);
+  }, [isDemo]);
 
   // Actions
   const handleAddBreed = async (e: React.FormEvent) => {
@@ -67,8 +76,8 @@ export default function FlockManager() {
     }
 
     if (isDemo) {
-      const updatedBreeds = [...breeds, cleanName].sort();
-      setBreeds(updatedBreeds);
+      demoStore.addBreed(cleanName);
+      setBreeds(demoStore.getBreeds());
       setBreed(cleanName);
       setNewBreedInput('');
       setShowAddBreed(false);
@@ -141,6 +150,7 @@ export default function FlockManager() {
         updatedFlock = [newBird, ...updatedFlock];
         triggerDemoToast('Demo Mode: Bird added locally! 🐓');
       }
+      demoStore.setFlock(updatedFlock);
       setFlock(updatedFlock);
       resetForm();
       return;
@@ -181,6 +191,7 @@ export default function FlockManager() {
       const updatedFlock = flock.map(b => 
         b.id === archivingId ? { ...b, ...payload } : b
       );
+      demoStore.setFlock(updatedFlock);
       setFlock(updatedFlock);
       triggerDemoToast('Demo Mode: Bird archived locally! 🗄️');
       setArchivingId(null);

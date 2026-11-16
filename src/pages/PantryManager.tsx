@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FormInput from '../components/FormInput';
 import SectionHeader from '../components/SectionHeader';
@@ -20,10 +21,25 @@ export default function PantryManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
   useEffect(() => {
+    const applyInventory = (data: { boxes_for_sale: number; boxes_personal: number; loose_eggs: number }) => {
+      setBoxesForSale(data.boxes_for_sale);
+      setBoxesPersonal(data.boxes_personal);
+      setLooseEggs(data.loose_eggs);
+
+      setEditForSale(data.boxes_for_sale);
+      setEditPersonal(data.boxes_personal);
+      setEditLoose(data.loose_eggs);
+    };
+
     const fetchInventory = async () => {
+      // 🛑 DEMO MODE — sample inventory only
+      if (isDemo) {
+        applyInventory(demoStore.getPantry());
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -34,16 +50,7 @@ export default function PantryManager() {
           .maybeSingle();
 
         if (error) throw error;
-
-        if (data) {
-          setBoxesForSale(data.boxes_for_sale);
-          setBoxesPersonal(data.boxes_personal);
-          setLooseEggs(data.loose_eggs);
-
-          setEditForSale(data.boxes_for_sale);
-          setEditPersonal(data.boxes_personal);
-          setEditLoose(data.loose_eggs);
-        }
+        if (data) applyInventory(data);
       } catch (error) {
         console.error('Error fetching pantry inventory:', error);
       } finally {
@@ -51,22 +58,8 @@ export default function PantryManager() {
       }
     };
 
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
-
     fetchInventory();
-    checkAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
+  }, [isDemo]);
 
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,23 +67,20 @@ export default function PantryManager() {
 
     // 🛑 DEMO MODE
     if (isDemo) {
-      setTimeout(() => {
-        setBoxesForSale(Number(editForSale));
-        setBoxesPersonal(Number(editPersonal));
-        setLooseEggs(Number(editLoose));
-        setIsOpen(false);
-        setSaving(false);
-      }, 600);
-      return;
-    }
-
-    // 🟢 LIVE MODE
-    if (!isAuthenticated) {
-      alert("You must be logged in to update the live inventory.");
+      demoStore.setPantry({
+        boxes_for_sale: Number(editForSale),
+        boxes_personal: Number(editPersonal),
+        loose_eggs: Number(editLoose)
+      });
+      setBoxesForSale(Number(editForSale));
+      setBoxesPersonal(Number(editPersonal));
+      setLooseEggs(Number(editLoose));
+      setIsOpen(false);
       setSaving(false);
       return;
     }
 
+    // 🟢 LIVE MODE
     try {
       const { error } = await supabase
         .from('pantry_inventory')
@@ -119,7 +109,6 @@ export default function PantryManager() {
   const potentialNewBoxes = Math.floor(looseEggs / 10);
   const remainingLoose = looseEggs % 10;
 
-  const canEdit = isAuthenticated || isDemo;
 
   if (loading) {
     return <LoadingSpinner message="Loading pantry inventory..." size="md" />;
@@ -132,17 +121,13 @@ export default function PantryManager() {
           emoji="📦"
           title="Pantry Manager"
           description="Real-time inventory of what's currently on the farm shelves."
-          action={
-            canEdit
-              ? {
-                  label: isOpen ? 'Close Adjustment' : 'Manual Adjust',
-                  onClick: () => setIsOpen(!isOpen)
-                }
-              : undefined
-          }
+          action={{
+            label: isOpen ? 'Close Adjustment' : 'Manual Adjust',
+            onClick: () => setIsOpen(!isOpen)
+          }}
         />
 
-        {isOpen && canEdit && (
+        {isOpen && (
           <form onSubmit={handleSaveAdjustment} className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-4 animate-fade-in">
             <div className="flex justify-between items-start">
               <div>

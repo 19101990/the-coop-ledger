@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useDemo } from '../context/DemoContext';
+import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+// Live app data starts here; earlier years come from legacy_yearly_ledger.
+const LIVE_DATA_START = '2026-01-01';
+
+type EggColumns = 'eggs_chocolate' | 'eggs_brown' | 'eggs_beige' | 'eggs_olive' | 'eggs_blue' | 'eggs_nato' | 'eggs_perlhuhn';
+
+interface ReportSourceData {
+  legacyData: Array<{ year: number; eggs_collected: number; eggs_sold: number; revenue: number }>;
+  liveLogs: Array<{ date: string } & Record<EggColumns, number>>;
+  liveSales: Array<{ date: string; amount_boxes: number | string; price: number | string }>;
+}
 
 interface YearlyReportRow {
   year: number;
@@ -11,42 +24,59 @@ interface YearlyReportRow {
 }
 
 export default function Reports() {
+  const { isDemo } = useDemo();
   const [yearlyReport, setYearlyReport] = useState<YearlyReportRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function loadSourceData(): Promise<ReportSourceData> {
+      // 🛑 DEMO MODE — build the report purely from sample data
+      if (isDemo) {
+        const since = `${new Date().getFullYear()}-01-01`;
+        return {
+          legacyData: demoStore.getLegacyYears(),
+          liveLogs: demoStore.getDailyLogsSince(since),
+          liveSales: demoStore.getSalesSince(since),
+        };
+      }
+
+      const { data: legacyData, error: legacyError } = await supabase
+        .from('legacy_yearly_ledger')
+        .select('year, eggs_collected, eggs_sold, revenue');
+
+      if (legacyError) throw legacyError;
+
+      const { data: liveLogs, error: logsError } = await supabase
+        .from('daily_log')
+        .select(`
+          date,
+          eggs_chocolate,
+          eggs_brown,
+          eggs_beige,
+          eggs_olive,
+          eggs_blue,
+          eggs_nato,
+          eggs_perlhuhn
+        `)
+        .gte('date', LIVE_DATA_START);
+
+      if (logsError) throw logsError;
+
+      const { data: liveSales, error: salesError } = await supabase
+        .from('sales')
+        .select('date, amount_boxes, price')
+        .gte('date', LIVE_DATA_START);
+
+      if (salesError) throw salesError;
+
+      return { legacyData: legacyData || [], liveLogs: liveLogs || [], liveSales: liveSales || [] };
+    }
+
     async function buildYearlyReport() {
       try {
         setLoading(true);
 
-        const { data: legacyData, error: legacyError } = await supabase
-          .from('legacy_yearly_ledger')
-          .select('year, eggs_collected, eggs_sold, revenue');
-
-        if (legacyError) throw legacyError;
-
-        const { data: liveLogs, error: logsError } = await supabase
-          .from('daily_log')
-          .select(`
-            date, 
-            eggs_chocolate, 
-            eggs_brown, 
-            eggs_beige, 
-            eggs_olive, 
-            eggs_blue, 
-            eggs_nato, 
-            eggs_perlhuhn
-          `)
-          .gte('date', '2026-01-01');
-
-        if (logsError) throw logsError;
-
-        const { data: liveSales, error: salesError } = await supabase
-          .from('sales')
-          .select('date, amount_boxes, price')
-          .gte('date', '2026-01-01');
-
-        if (salesError) throw salesError;
+        const { legacyData, liveLogs, liveSales } = await loadSourceData();
 
         const liveYearGroups: Record<number, { collected: number; sold: number; revenue: number }> = {};
 
@@ -115,7 +145,7 @@ export default function Reports() {
     }
 
     buildYearlyReport();
-  }, []);
+  }, [isDemo]);
 
   return (
     <div className="space-y-6 p-4">
