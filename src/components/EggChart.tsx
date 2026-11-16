@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { EggSeries } from '../utils/eggChart';
 
-const num = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1 });
+const num = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1, useGrouping: false });
 
 /**
  * Sequential green ramp, light → dark (OKLCH hue 155, the app's income green; L 0.74 → 0.39).

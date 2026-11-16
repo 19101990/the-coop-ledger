@@ -1,5 +1,6 @@
-// Number part only (nl-NL: "1.234,50"); the € sign is added by formatEUR without a gap.
-const eurNumber = new Intl.NumberFormat('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Number part only, e.g. "1234,50": comma for decimals, no thousands separator.
+// The € sign is added by formatEUR without a gap.
+const eurNumber = new Intl.NumberFormat('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -38,7 +39,7 @@ export const formatMonthLong = ({ month }: YearMonth) => MONTHS_LONG[month];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /**
- * Money: "€6,00", "€1.234,50"; negatives as "− €6,00" (true minus sign, then a space).
+ * Money: "€6,00", "€1234,50"; negatives as "− €6,00" (true minus sign, then a space).
  * No plus sign for positive amounts — an unsigned amount is income/positive.
  */
 export const formatEUR = (n: number): string => {

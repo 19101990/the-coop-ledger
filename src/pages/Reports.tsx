@@ -147,11 +147,11 @@ export default function Reports() {
     buildYearlyReport();
   }, [isDemo]);
 
-  const nf = new Intl.NumberFormat('nl-NL');
+  const nf = new Intl.NumberFormat('nl-NL', { useGrouping: false });
 
   return (
     <PageContainer>
-      <Section title="Yearly ledger" aside="Legacy records + app data">
+      <Section title="Yearly ledger">
         <Card padded={false}>
           {loading ? (
             <LoadingSpinner message="Calculating yearly totals…" size="sm" />
@@ -171,22 +171,26 @@ export default function Reports() {
                   className={`grid grid-cols-[minmax(0,1fr)_64px_64px_88px] items-center gap-2 px-3.5 py-3 ${rowDivider}`}
                 >
                   <span className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-medium">{row.year}</span>
+                    <span className="font-mono text-sm font-bold">{row.year}</span>
                     {row.isLegacy && (
                       <span className="rounded bg-subtle px-1.5 py-px text-[10px] text-muted">Legacy</span>
                     )}
                   </span>
                   <span className="text-right font-mono text-[13px] text-ink-soft tabular-nums">{nf.format(row.eggs_collected)}</span>
                   <span className="text-right font-mono text-[13px] text-ink-soft tabular-nums">{nf.format(row.eggs_sold)}</span>
-                  <span className="text-right font-mono text-[13px] font-medium tabular-nums">{formatEUR(row.revenue)}</span>
+                  {/* Green for a gain, red for a loss — same meaning as amounts elsewhere in the app. */}
+                  <span
+                    className={`text-right font-mono text-[13px] font-bold tabular-nums ${
+                      Math.round(row.revenue * 100) < 0 ? 'text-expense' : 'text-income'
+                    }`}
+                  >
+                    {formatEUR(row.revenue)}
+                  </span>
                 </div>
               ))}
             </>
           )}
         </Card>
-        <p className="m-0 px-0.5 text-xs text-muted">
-          Revenue for app years is all income minus all expenses from the Ledger. Legacy years show their recorded egg revenue.
-        </p>
       </Section>
     </PageContainer>
   );
