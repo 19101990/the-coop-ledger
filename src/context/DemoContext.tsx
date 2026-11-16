@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
 interface DemoContextType {
+  /** True whenever there is no authenticated session. Derived from auth — cannot be toggled manually. */
   isDemo: boolean;
-  setIsDemo: (val: boolean) => void;
+  /** False until the initial session check has finished. */
+  authReady: boolean;
+  user: User | null;
   demoMessage: string | null;
   triggerDemoToast: (msg?: string) => void;
 }
@@ -11,20 +15,25 @@ interface DemoContextType {
 const DemoContext = createContext<DemoContextType | undefined>(undefined);
 
 export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isDemo, setIsDemo] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [demoMessage, setDemoMessage] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setIsDemo(false);
+      setUser(session?.user ?? null);
+      setAuthReady(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsDemo(!session?.user);
+      setUser(session?.user ?? null);
+      setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const isDemo = !user;
 
   const triggerDemoToast = (msg = "Demo Mode: Transaction simulated locally.") => {
     setDemoMessage(msg);
@@ -32,11 +41,11 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <DemoContext.Provider value={{ isDemo, setIsDemo, demoMessage, triggerDemoToast }}>
+    <DemoContext.Provider value={{ isDemo, authReady, user, demoMessage, triggerDemoToast }}>
       {children}
       {demoMessage && (
-        <div 
-          className={`fixed bottom-4 right-4 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg animate-bounce z-50 
+        <div
+          className={`fixed bottom-4 right-4 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg animate-bounce z-50
           ${isDemo ? 'bg-amber-600' : 'bg-emerald-600'} `}
         >
           {demoMessage}

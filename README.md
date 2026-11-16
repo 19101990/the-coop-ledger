@@ -9,7 +9,7 @@ A custom Progressive Web App (PWA) built to manage the daily operations, flock c
 * **Sales Tracker & Ledger:** Manages customer transactions, tracks box inventory, and logs both paid sales and gifted items.
 * **Offline-Ready PWA:** Fully installable on mobile devices (iOS/Android) with a configured service worker and web manifest for fast, app-like performance.
 * **Secure Cloud Database:** Powered by a Supabase backend with Row Level Security (RLS) policies to ensure data is safely backed up and only accessible to authenticated users.
-* **Demo Sandbox Mode:** A local-storage fallback mode that allows visitors to test the app's functionality without altering the live production database.
+* **Demo Sandbox Mode:** Visitors who aren't signed in get a fully isolated sandbox seeded with fictional sample data (`src/demo/demoStore.ts`). Demo mode never reads from or writes to Supabase, so no real customers, sales, logs or reports are exposed. Signing in switches every page to the live database.
 
 ## Tech Stack
 

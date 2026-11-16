@@ -1,7 +1,8 @@
 import type { Tab } from '../types/types';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
+import { demoStore } from '../demo/demoStore';
 
 
 interface HeaderProps {
@@ -10,31 +11,18 @@ interface HeaderProps {
 }
 
 export function LiveDatabaseToggle() {
-  const { isDemo, setIsDemo } = useDemo();
+  // Mode is derived from the Supabase session in DemoContext; signing in/out updates it automatically.
+  const { isDemo } = useDemo();
   const [showLogin, setShowLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) setIsDemo(false);
-    });
-  }, [setIsDemo]);
 
   const handleToggleClick = async () => {
     if (isDemo) {
-      if (user) {
-        setIsDemo(false);
-      } else {
-        setShowLogin(true);
-      }
+      setShowLogin(true);
     } else {
       await supabase.auth.signOut();
-      setUser(null);
-      setIsDemo(true);
       setShowLogin(false);
     }
   };
@@ -42,21 +30,26 @@ export function LiveDatabaseToggle() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
-    
-    const { data, error } = await supabase.auth.signInWithPassword({ 
-      email, 
-      password 
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     });
 
     if (error) {
       setErrorMsg('Invalid credentials.');
     } else {
-      setUser(data.user);
-      setIsDemo(false);
       setShowLogin(false);
       setEmail('');
       setPassword('');
     }
+  };
+
+  const handleResetDemo = () => {
+    if (!window.confirm('Reset the demo sandbox back to its sample data?')) return;
+    demoStore.reset();
+    // Reload so every page re-reads the fresh sample data.
+    window.location.reload();
   };
 
   return (
@@ -74,6 +67,15 @@ export function LiveDatabaseToggle() {
             {isDemo ? 'Unlock Live Mode' : 'Lock to Demo'}
           </button>
         </div>
+
+        {isDemo && !showLogin && (
+          <button
+            onClick={handleResetDemo}
+            className="self-start text-[11px] text-stone-400 hover:text-stone-700 underline"
+          >
+            Reset demo data
+          </button>
+        )}
 
         {showLogin && isDemo && (
           <form onSubmit={handleLogin} className="bg-stone-100 p-3 rounded-xl space-y-2 animate-fade-in border border-stone-200">

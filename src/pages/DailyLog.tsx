@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { EggVariety, EggCounts, DBLogEntry } from '../types/types';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
@@ -39,6 +40,23 @@ export default function DailyLog() {
   const observerTarget = useRef<HTMLDivElement | null>(null);
   const ITEMS_PER_PAGE = 10;
 
+  // Single source switch for history: sample data in demo, Supabase when signed in.
+  const loadLogs = async (fromIndex: number, toIndex: number): Promise<DBLogEntry[] | null> => {
+    if (isDemo) return demoStore.getDailyLogs(fromIndex, toIndex);
+
+    const { data, error } = await supabase
+      .from('daily_log')
+      .select('*')
+      .order('date', { ascending: false })
+      .range(fromIndex, toIndex);
+
+    if (error) {
+      console.error('Error loading history logs:', error.message);
+      return null;
+    }
+    return data;
+  };
+
   const fetchLogHistory = async (pageNumber: number, clearAndFetchFirstPage = false) => {
     if (isLoadingHistory || (!hasMore && !clearAndFetchFirstPage)) return;
     setIsLoadingHistory(true);
@@ -47,16 +65,7 @@ export default function DailyLog() {
     const toIndex = fromIndex + ITEMS_PER_PAGE - 1;
 
     try {
-      const { data, error } = await supabase
-        .from('daily_log')
-        .select('*')
-        .order('date', { ascending: false })
-        .range(fromIndex, toIndex);
-
-      if (error) {
-        console.error('Error loading history logs:', error.message);
-        return;
-      }
+      const data = await loadLogs(fromIndex, toIndex);
 
       if (data) {
         if (clearAndFetchFirstPage) {
@@ -83,16 +92,7 @@ export default function DailyLog() {
     setIsLoadingHistory(true);
 
     try {
-      const { data, error } = await supabase
-        .from('daily_log')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(ITEMS_PER_PAGE);
-
-      if (error) {
-        console.error('Error refreshing logs:', error.message);
-        return;
-      }
+      const data = await loadLogs(0, ITEMS_PER_PAGE - 1);
 
       if (data) {
         setLogsSummary(data);
@@ -199,52 +199,40 @@ export default function DailyLog() {
 
     // 🛑 DEMO MODE
     if (isDemo) {
-      let updatedLogs: DBLogEntry[];
+      const logFields = {
+        date: finalDateString,
+        eggs_chocolate: eggCollected.chocolate,
+        eggs_brown: eggCollected.brown,
+        eggs_beige: eggCollected.beige,
+        eggs_white: eggCollected.white,
+        eggs_olive: eggCollected.olive,
+        eggs_blue: eggCollected.blue,
+        eggs_nato: eggCollected.nato,
+        eggs_perlhuhn: eggCollected.perlhuhn,
+        boxes_for_sale: packedForSale,
+        boxes_personal: packedPersonal,
+        notes: logNotes.trim() || null
+      };
+
       if (editingLogId !== null) {
-        updatedLogs = logsSummary.map(log => 
-          log.id === editingLogId 
-            ? {
-                ...log,
-                date: finalDateString,
-                eggs_chocolate: eggCollected.chocolate,
-                eggs_brown: eggCollected.brown,
-                eggs_beige: eggCollected.beige,
-                eggs_white: eggCollected.white,
-                eggs_olive: eggCollected.olive,
-                eggs_blue: eggCollected.blue,
-                eggs_nato: eggCollected.nato,
-                eggs_perlhuhn: eggCollected.perlhuhn,
-                boxes_for_sale: packedForSale,
-                boxes_personal: packedPersonal,
-                notes: logNotes.trim() || null
-              }
-            : log
-        );
-        triggerDemoToast('Demo Mode: Daily log updated locally! 🥚');
+        demoStore.updateDailyLog(editingLogId, logFields);
+        triggerDemoToast('Demo Mode: Daily log updated in the sandbox! 🥚');
       } else {
-        const newEntry: DBLogEntry = {
-          id: Date.now(),
-          created_at: new Date().toISOString(),
-          date: finalDateString,
-          eggs_chocolate: eggCollected.chocolate,
-          eggs_brown: eggCollected.brown,
-          eggs_beige: eggCollected.beige,
-          eggs_white: eggCollected.white,
-          eggs_olive: eggCollected.olive,
-          eggs_blue: eggCollected.blue,
-          eggs_nato: eggCollected.nato,
-          eggs_perlhuhn: eggCollected.perlhuhn,
-          boxes_for_sale: packedForSale,
-          boxes_personal: packedPersonal,
-          notes: logNotes.trim() || null
-        };
-        updatedLogs = [newEntry, ...logsSummary];
-        triggerDemoToast('Demo Mode: Daily log saved locally! 🥚');
+        demoStore.addDailyLog(logFields);
+
+        // Mirror the live pantry bookkeeping in the sandbox.
+        const pantry = demoStore.getPantry();
+        const netLooseChange = calculateDailyTotal(eggCollected) - (packedForSale + packedPersonal) * 10;
+        demoStore.setPantry({
+          boxes_for_sale: pantry.boxes_for_sale + packedForSale,
+          boxes_personal: pantry.boxes_personal + packedPersonal,
+          loose_eggs: pantry.loose_eggs + netLooseChange
+        });
+        triggerDemoToast('Demo Mode: Daily log saved to the sandbox! 🥚');
       }
 
-      setLogsSummary(updatedLogs);
-      localStorage.setItem('demo_daily_logs', JSON.stringify(updatedLogs));
       handleCancelEdit();
+      await refreshLogHistory();
       return;
     }
 
@@ -340,10 +328,9 @@ export default function DailyLog() {
     if (!window.confirm('Are you sure you want to delete this daily log entry?')) return;
 
     if (isDemo) {
-      const updatedLogs = logsSummary.filter(log => log.id !== id);
-      setLogsSummary(updatedLogs);
-      localStorage.setItem('demo_daily_logs', JSON.stringify(updatedLogs));
-      triggerDemoToast('Demo Mode: Daily log deleted locally! 🗑️');
+      demoStore.deleteDailyLog(id);
+      triggerDemoToast('Demo Mode: Daily log deleted from the sandbox! 🗑️');
+      await refreshLogHistory();
       return;
     }
 

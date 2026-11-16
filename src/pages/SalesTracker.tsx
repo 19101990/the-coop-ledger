@@ -4,6 +4,25 @@ import { supabase } from '../supabaseClient';
 import type { SaleEntry } from '../types/types';
 import SectionHeader from '../components/SectionHeader';
 import DateSelector from '../components/DateSelector';
+import { demoStore } from '../demo/demoStore';
+
+interface SaleRow {
+  id: number | string;
+  customer_name: string;
+  amount_boxes: number | string;
+  price: number | string;
+  status: 'Paid' | 'Gift';
+  date: string;
+}
+
+const toSaleEntry = (row: SaleRow): SaleEntry => ({
+  id: row.id.toString(),
+  customerName: row.customer_name,
+  amountBoxes: Number(row.amount_boxes) * 10,
+  price: Number(row.price),
+  status: row.status,
+  date: row.date
+});
 
 export default function SalesTracker() {
   const getTodayString = (): string => {
@@ -27,7 +46,22 @@ export default function SalesTracker() {
   const [salesLog, setSalesLog] = useState<SaleEntry[]>([]);
 
   useEffect(() => {
+    const applyCustomers = (names: string[]) => {
+      setCustomers(names);
+      if (names.includes('Walk-in Customer')) {
+        setSelectedCustomer('Walk-in Customer');
+      } else if (names.length > 0) {
+        setSelectedCustomer(names[0]);
+      }
+    };
+
     const fetchCustomers = async () => {
+      // 🛑 DEMO MODE — sample customers only, never the real roster
+      if (isDemo) {
+        applyCustomers(demoStore.getCustomers());
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from('customers')
@@ -40,23 +74,14 @@ export default function SalesTracker() {
           return;
         }
 
-        if (data) {
-          const names = data.map(c => c.name);
-          setCustomers(names);
-
-          if (names.includes('Walk-in Customer')) {
-            setSelectedCustomer('Walk-in Customer');
-          } else if (names.length > 0) {
-            setSelectedCustomer(names[0]);
-          }
-        }
+        if (data) applyCustomers(data.map(c => c.name));
       } catch (err) {
         console.error('Unexpected error loading roster:', err);
       }
     };
 
     fetchCustomers();
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     if (paymentStatus === 'Gift') {
@@ -80,13 +105,12 @@ export default function SalesTracker() {
 
     // 🛑 DEMO MODE
     if (isDemo) {
-      const updatedCustomers = [...customers, cleanName].sort();
-      setCustomers(updatedCustomers);
+      demoStore.addCustomer(cleanName);
+      setCustomers(demoStore.getCustomers());
       setSelectedCustomer(cleanName);
       setNewCustomerInput('');
       setShowAddCustomer(false);
 
-      localStorage.setItem('demo_customers', JSON.stringify(updatedCustomers));
       triggerDemoToast(`Demo Mode: Customer "${cleanName}" added locally!`);
 
       return;
@@ -120,6 +144,12 @@ export default function SalesTracker() {
 
   useEffect(() => {
     const fetchRecentSales = async () => {
+      // 🛑 DEMO MODE — sample sales only
+      if (isDemo) {
+        setSalesLog(demoStore.getRecentSales(10).map(toSaleEntry));
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from('sales')
@@ -133,16 +163,7 @@ export default function SalesTracker() {
         }
 
         if (data) {
-          const formattedSales = data.map((dbSale: any) => ({
-            id: dbSale.id.toString(),
-            customerName: dbSale.customer_name,
-            amountBoxes: Number(dbSale.amount_boxes) * 10,
-            price: Number(dbSale.price),
-            status: dbSale.status,
-            date: dbSale.date
-          }));
-
-          setSalesLog(formattedSales);
+          setSalesLog(data.map(toSaleEntry));
         }
       } catch (err) {
         console.error('Unexpected error loading history:', err);
@@ -150,7 +171,32 @@ export default function SalesTracker() {
     };
 
     fetchRecentSales();
-  }, []);
+  }, [isDemo]);
+
+  // Pantry stock change for a sale: deduct full boxes, then loose eggs (breaking a box if needed).
+  const deductFromPantry = (pantry: { boxes_for_sale: number; loose_eggs: number }, rawEggs: number) => {
+    let newLoose = pantry.loose_eggs - (rawEggs % 10);
+    let newSaleBoxes = pantry.boxes_for_sale - Math.floor(rawEggs / 10);
+
+    if (newLoose < 0) {
+      newLoose += 10;
+      newSaleBoxes -= 1;
+    }
+
+    return { newSaleBoxes: Math.max(0, newSaleBoxes), newLoose: Math.max(0, newLoose) };
+  };
+
+  const resetSaleForm = () => {
+    setEggsSoldInput('');
+    setPriceOverride('');
+    setIsManualPrice(false);
+    setPaymentStatus('Paid');
+    setSaleDate(getTodayString());
+
+    if (customers.includes('Walk-in Customer')) {
+      setSelectedCustomer('Walk-in Customer');
+    }
+  };
 
   const handleSaveSale = async () => {
     const rawEggs = parseInt(eggsSoldInput);
@@ -166,36 +212,32 @@ export default function SalesTracker() {
 
     // 🛑 DEMO MODE
     if (isDemo) {
-      const newLogEntry: SaleEntry = {
-        id: Math.random().toString(36).substring(7),
-        customerName: selectedCustomer,
-        amountBoxes: calculatedBoxes * 10,
+      const saleDateFinal = finalDate || getTodayString();
+      demoStore.addSale({
+        customer_name: selectedCustomer,
+        amount_boxes: calculatedBoxes,
         price: finalPrice,
         status: paymentStatus,
-        date: finalDate || new Date().toISOString().split('T')[0]
-      };
+        date: saleDateFinal
+      });
 
-      const updatedLog = [newLogEntry, ...salesLog].slice(0, 10);
-      setSalesLog(updatedLog);
-
-      localStorage.setItem('demo_sales_ledger', JSON.stringify(updatedLog));
+      const pantry = demoStore.getPantry();
+      const { newSaleBoxes, newLoose } = deductFromPantry(pantry, rawEggs);
+      demoStore.setPantry({ ...pantry, boxes_for_sale: newSaleBoxes, loose_eggs: newLoose });
 
       if (paymentStatus === 'Paid' && finalPrice > 0) {
-        const currentTx = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
-        const autoTx = {
-          id: Date.now(),
-          date: finalDate || new Date().toISOString().split('T')[0],
+        demoStore.addTransaction({
+          date: saleDateFinal,
           type: 'income',
           category: 'Egg Sales',
           description: `Sold ${rawEggs} eggs to ${selectedCustomer}`,
           amount: finalPrice
-        };
-        const updatedTx = [autoTx, ...currentTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        localStorage.setItem('demo_transactions', JSON.stringify(updatedTx));
+        });
       }
 
-      triggerDemoToast("Demo Mode: Sale saved to LocalStorage!");
-
+      setSalesLog(demoStore.getRecentSales(10).map(toSaleEntry));
+      triggerDemoToast("Demo Mode: Sale saved to the sandbox!");
+      resetSaleForm();
       return;
     }
 
@@ -210,23 +252,11 @@ export default function SalesTracker() {
 
       if (pantryError) throw pantryError;
 
-      let currentSaleBoxes = pantryData?.boxes_for_sale || 0;
-      let currentPersonalBoxes = pantryData?.boxes_personal || 0;
-      let currentLoose = pantryData?.loose_eggs || 0;
-
-      let boxesToDeduct = Math.floor(rawEggs / 10);
-      let looseToDeduct = rawEggs % 10;
-
-      let newLoose = currentLoose - looseToDeduct;
-      let newSaleBoxes = currentSaleBoxes - boxesToDeduct;
-
-      if (newLoose < 0) {
-        newLoose += 10;
-        newSaleBoxes -= 1;
-      }
-
-      newLoose = Math.max(0, newLoose);
-      newSaleBoxes = Math.max(0, newSaleBoxes);
+      const currentPersonalBoxes = pantryData?.boxes_personal || 0;
+      const { newSaleBoxes, newLoose } = deductFromPantry(
+        { boxes_for_sale: pantryData?.boxes_for_sale || 0, loose_eggs: pantryData?.loose_eggs || 0 },
+        rawEggs
+      );
 
       const { data: saleData, error: saleError } = await supabase
         .from('sales')
@@ -273,29 +303,11 @@ export default function SalesTracker() {
       }
 
       if (saleData && saleData.length > 0) {
-        const databaseSale = saleData[0];
-        const newLogEntry: SaleEntry = {
-          id: databaseSale.id.toString(),
-          customerName: databaseSale.customer_name,
-          amountBoxes: Number(databaseSale.amount_boxes) * 10,
-          price: Number(databaseSale.price),
-          status: databaseSale.status,
-          date: databaseSale.date
-        };
-
-        setSalesLog([newLogEntry, ...salesLog].slice(0, 10));
+        setSalesLog([toSaleEntry(saleData[0]), ...salesLog].slice(0, 10));
         triggerDemoToast('Live Mode: Sale and Pantry updated! 💰');
       }
 
-      setEggsSoldInput('');
-      setPriceOverride('');
-      setIsManualPrice(false);
-      setPaymentStatus('Paid');
-      setSaleDate(getTodayString());
-
-      if (customers.includes('Walk-in Customer')) {
-        setSelectedCustomer('Walk-in Customer');
-      }
+      resetSaleForm();
     } catch (err: any) {
       console.error('Unexpected error tracking transaction:', err);
       alert(`Transaction Failed: ${err.message}`);

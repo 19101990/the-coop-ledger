@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
@@ -34,12 +35,7 @@ export default function TransactionsTracker() {
   useEffect(() => {
     const loadCategories = async () => {
       if (isDemo) {
-        const demoCats: TransactionCategory[] = [
-          { id: 1, name: 'Egg Sales', type: 'income' },
-          { id: 2, name: 'Food', type: 'expense' },
-          { id: 3, name: 'Bedding', type: 'expense' },
-        ];
-        setCategories(demoCats);
+        setCategories(demoStore.getCategories());
         return;
       }
       try {
@@ -70,7 +66,7 @@ export default function TransactionsTracker() {
       }
 
       if (isDemo) {
-        const demoHistory: TransactionEntry[] = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
+        const demoHistory = demoStore.getTransactions();
         let filtered = demoHistory;
         if (summaryTimeframe === 'ytd') {
           filtered = demoHistory.filter(t => t.date >= `${today.getFullYear()}-01-01`);
@@ -107,7 +103,7 @@ export default function TransactionsTracker() {
     const toIndex = fromIndex + ITEMS_PER_PAGE - 1;
 
     if (isDemo) {
-      const demoHistory: TransactionEntry[] = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
+      const demoHistory = demoStore.getTransactions();
       let filtered = demoHistory;
       if (filterCategory !== 'all') {
         filtered = demoHistory.filter(t => t.category === filterCategory);
@@ -197,10 +193,7 @@ export default function TransactionsTracker() {
     };
 
     if (isDemo) {
-      const currentLogs: TransactionEntry[] = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
-      const finalTx = { id: Date.now(), ...newTx };
-      const updated = [finalTx, ...currentLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      localStorage.setItem('demo_transactions', JSON.stringify(updated));
+      demoStore.addTransaction(newTx);
       triggerDemoToast(`Demo Mode: ${transactionType} saved! 💰`);
       
       setAmount('');
@@ -235,9 +228,7 @@ export default function TransactionsTracker() {
     if (!window.confirm("Are you sure you want to delete this transaction? This will affect your ledger summaries.")) return;
 
     if (isDemo) {
-      const currentLogs: TransactionEntry[] = JSON.parse(localStorage.getItem('demo_transactions') || '[]');
-      const updated = currentLogs.filter(t => t.id !== id);
-      localStorage.setItem('demo_transactions', JSON.stringify(updated));
+      demoStore.deleteTransaction(id);
       triggerDemoToast('Demo Mode: Transaction deleted! 🗑️');
       setPage(0);
       fetchHistory(0, true);
