@@ -17,8 +17,8 @@ export default defineConfig({
         name: 'The Coop',
         short_name: 'The Coop',
         description: 'Internal farm management ledger',
-        theme_color: '#d97706',
-        background_color: '#fafaf9',
+        theme_color: '#f4f4f5',
+        background_color: '#f4f4f5',
         display: 'standalone',
         icons: [
           {

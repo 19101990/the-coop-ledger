@@ -47,9 +47,10 @@ interface DemoData {
   legacy: DemoLegacyYear[];
 }
 
-const STORAGE_KEY = 'coop_demo_data_v1';
-// Keys used by the previous demo implementation; cleared on reset.
-const LEGACY_KEYS = ['demo_customers', 'demo_sales_ledger', 'demo_transactions', 'demo_daily_logs'];
+// Bump the version when the seed changes so existing visitors get the new sample data.
+const STORAGE_KEY = 'coop_demo_data_v2';
+// Keys used by earlier demo versions; cleared on reset.
+const LEGACY_KEYS = ['coop_demo_data_v1', 'demo_customers', 'demo_sales_ledger', 'demo_transactions', 'demo_daily_logs'];
 
 // ---------- Seed generation ----------
 
@@ -90,16 +91,18 @@ function buildSeed(): DemoData {
       id: 10_000 + i,
       created_at: `${date}T18:00:00.000Z`,
       date,
-      eggs_chocolate: int(0, 3),
-      eggs_brown: int(3, 7),
-      eggs_beige: int(1, 4),
-      eggs_white: int(1, 4),
-      eggs_olive: int(0, 2),
-      eggs_blue: int(0, 2),
-      eggs_nato: int(0, 1),
-      eggs_perlhuhn: int(0, 2),
-      boxes_for_sale: int(0, 1),
-      boxes_personal: rand() < 0.2 ? 1 : 0,
+      // At most one egg per hen per day, matching the sample flock below:
+      // 2 Maran (chocolate), 2 Leghorn (white), Araucana (blue), Sussex (beige), Orpington (brown).
+      eggs_chocolate: int(0, 2),
+      eggs_brown: int(0, 1),
+      eggs_beige: int(0, 1),
+      eggs_white: int(1, 2),
+      eggs_olive: 0,
+      eggs_blue: int(0, 1),
+      eggs_nato: 0,
+      eggs_perlhuhn: 0,
+      boxes_for_sale: rand() < 0.3 ? 1 : 0,
+      boxes_personal: rand() < 0.1 ? 1 : 0,
       notes: notes[int(0, notes.length - 1)],
     });
   }
@@ -108,7 +111,7 @@ function buildSeed(): DemoData {
   const transactions: TransactionEntry[] = [];
   for (let i = 0; i < 18; i++) {
     const date = isoDaysAgo(i * 2 + int(0, 1));
-    const eggs = [6, 10, 10, 12, 20, 30][int(0, 5)];
+    const eggs = [6, 6, 10, 10, 12, 12][int(0, 5)];
     const isGift = rand() < 0.15;
     const price = isGift ? 0 : eggs * 0.5;
     const customer = customers[int(0, customers.length - 1)];
@@ -254,11 +257,18 @@ export const demoStore = {
   getRecentSales: (limit = 10): DemoSale[] =>
     clone(read().sales).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit),
   getSalesSince: (date: string): DemoSale[] => clone(read().sales.filter(s => s.date >= date)),
+  getAllSales: (): DemoSale[] => clone(read().sales),
+  /** Sales with from <= date < to (YYYY-MM-DD). */
+  getSalesBetween: (from: string, to: string): DemoSale[] =>
+    clone(read().sales.filter(s => s.date >= from && s.date < to)),
   addSale(sale: Omit<DemoSale, 'id'>): DemoSale {
     const entry = { id: nextId(), ...sale };
     update('sales', list => [entry, ...list]);
     return entry;
   },
+  updateSale: (id: number, patch: Partial<Omit<DemoSale, 'id'>>) =>
+    update('sales', list => list.map(s => (s.id === id ? { ...s, ...patch } : s))),
+  deleteSale: (id: number) => update('sales', list => list.filter(s => s.id !== id)),
 
   // Daily logs
   getDailyLogs(from: number, to: number): DBLogEntry[] {
@@ -267,6 +277,9 @@ export const demoStore = {
       .slice(from, to + 1);
   },
   getDailyLogsSince: (date: string): DBLogEntry[] => clone(read().dailyLogs.filter(l => l.date >= date)),
+  /** Logs with from <= date < to (YYYY-MM-DD). */
+  getDailyLogsBetween: (from: string, to: string): DBLogEntry[] =>
+    clone(read().dailyLogs.filter(l => l.date >= from && l.date < to)),
   addDailyLog(log: Omit<DBLogEntry, 'id' | 'created_at'>): DBLogEntry {
     const entry: DBLogEntry = { id: nextId(), created_at: new Date().toISOString(), ...log };
     update('dailyLogs', list => [entry, ...list]);
@@ -289,6 +302,8 @@ export const demoStore = {
     update('transactions', list => [entry, ...list]);
     return entry;
   },
+  updateTransaction: (id: number, patch: Partial<Omit<TransactionEntry, 'id'>>) =>
+    update('transactions', list => list.map(t => (t.id === id ? { ...t, ...patch } : t))),
   deleteTransaction: (id: number) => update('transactions', list => list.filter(t => t.id !== id)),
 
   // Flock

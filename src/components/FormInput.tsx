@@ -1,30 +1,25 @@
 import React from 'react';
+import { inputClass, inputOnPageClass } from './uiStyles';
 
 interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
+  /** True when the input sits on the grey page/sheet background rather than in a white card: makes it white. */
+  onPage?: boolean;
 }
 
 export default function FormInput({
   label,
   error,
+  onPage = false,
   className = '',
   ...props
 }: FormInputProps) {
   return (
-    <div>
-      {label && (
-        <label className="block text-xs font-medium text-stone-700 mb-1">
-          {label}
-        </label>
-      )}
-      <input
-        className={`w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${className}`}
-        {...props}
-      />
-      {error && (
-        <p className="text-xs text-red-500 mt-1">{error}</p>
-      )}
-    </div>
+    <label className="flex flex-col gap-1.5">
+      {label && <span className="text-xs text-muted">{label}</span>}
+      <input className={`${onPage ? inputOnPageClass : inputClass} ${className}`} {...props} />
+      {error && <span className="text-xs text-expense">{error}</span>}
+    </label>
   );
 }

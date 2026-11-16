@@ -4,6 +4,9 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageContainer from '../components/PageContainer';
+import { Card, EmptyState, Section } from '../components/ui';
+import { rowDivider } from '../components/uiStyles';
+import { formatEUR } from '../utils/format';
 
 // Live app data starts here; earlier years come from legacy_yearly_ledger.
 const LIVE_DATA_START = '2026-01-01';
@@ -150,56 +153,44 @@ export default function Reports() {
     buildYearlyReport();
   }, [isDemo]);
 
+  const nf = new Intl.NumberFormat('nl-NL');
+
   return (
     <PageContainer>
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="mb-6">
-          <h2 className="text-lg font-bold text-stone-900 mb-1">📊 Comprehensive Yearly Ledger</h2>
-          <p className="text-xs text-stone-500">Unified view combining legacy metrics and dynamic app data</p>
-        </div>
-
-        {loading ? (
-          <LoadingSpinner message="Calculating historical and real-time matrix totals..." size="sm" />
-        ) : yearlyReport.length === 0 ? (
-          <div className="text-stone-400 text-xs py-4">
-            No production records found.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-stone-200 text-stone-400 font-semibold uppercase tracking-wider">
-                  <th className="pb-2 text-[9px]">Year</th>
-                  <th className="pb-2 text-center text-[9px]">Amount</th>
-                  <th className="pb-2 text-center text-[9px]">Sold</th>
-                  <th className="pb-2 text-right text-[9px]">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100 text-stone-700">
-                {yearlyReport.map((row) => (
-                  <tr key={row.year} className="hover:bg-stone-50/50 transition-colors">
-                    <td className="py-3 font-bold text-stone-900 valign-middle">
-                      <div className="flex items-center gap-2">
-                        <span>{row.year}</span>
-                        {row.isLegacy && (
-                          <span className="text-[9px] bg-stone-100 text-stone-600 font-medium px-1.5 py-0.5 rounded-sm uppercase tracking-wider">
-                            Legacy
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 text-center text-stone-600">{row.eggs_collected.toLocaleString()}</td>
-                    <td className="py-3 text-center text-stone-600">{row.eggs_sold.toLocaleString()}</td>
-                    <td className="py-3 text-right font-bold text-stone-900">
-                      €{row.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <Section title="Yearly ledger" aside="Legacy records + app data">
+        <Card padded={false}>
+          {loading ? (
+            <LoadingSpinner message="Calculating yearly totals…" size="sm" />
+          ) : yearlyReport.length === 0 ? (
+            <EmptyState>No production records found.</EmptyState>
+          ) : (
+            <>
+              <div className="grid grid-cols-[minmax(0,1fr)_64px_64px_88px] gap-2 border-b border-line px-3.5 py-2.5 font-mono text-[10px] tracking-[.08em] text-muted uppercase">
+                <span>Year</span>
+                <span className="text-right">Eggs</span>
+                <span className="text-right">Sold</span>
+                <span className="text-right">Revenue</span>
+              </div>
+              {yearlyReport.map((row) => (
+                <div
+                  key={row.year}
+                  className={`grid grid-cols-[minmax(0,1fr)_64px_64px_88px] items-center gap-2 px-3.5 py-3 ${rowDivider}`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-medium">{row.year}</span>
+                    {row.isLegacy && (
+                      <span className="rounded bg-subtle px-1.5 py-px text-[10px] text-muted">Legacy</span>
+                    )}
+                  </span>
+                  <span className="text-right font-mono text-[13px] text-ink-soft tabular-nums">{nf.format(row.eggs_collected)}</span>
+                  <span className="text-right font-mono text-[13px] text-ink-soft tabular-nums">{nf.format(row.eggs_sold)}</span>
+                  <span className="text-right font-mono text-[13px] font-medium tabular-nums">{formatEUR(row.revenue)}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </Card>
+      </Section>
     </PageContainer>
   );
 }

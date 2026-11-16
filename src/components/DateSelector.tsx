@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { formatFullDate, formatWeekdayDate } from '../utils/format';
+import { Chevron } from './ui';
 
 interface DateSelectorProps {
   value: string;
@@ -30,8 +32,9 @@ export default function DateSelector({
     const yesterdayStr = formatDateToString(yesterday);
     if (dateStr === yesterdayStr) return 'Yesterday';
 
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
+    return dateStr.slice(0, 4) === String(new Date().getFullYear())
+      ? formatWeekdayDate(dateStr)
+      : formatFullDate(dateStr);
   };
 
   const handlePreviousDay = (): void => {
@@ -65,32 +68,29 @@ export default function DateSelector({
     }
   }, []);
 
+  // Grid + drawn chevron so the arrow sits exactly in the middle of the button.
+  const arrowClass =
+    'grid h-11 w-11 flex-none cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-ink hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-surface';
+
   return (
-    <div className='mb-6'>
-      <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">
-        {label}
-      </label>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs text-muted">{label}</span>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handlePreviousDay}
-          className="w-10 h-10 flex items-center justify-center bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg border border-stone-200 transition-colors shadow-xs"
-          title="Go to previous day"
-        >
-          ←
+        <button type="button" onClick={handlePreviousDay} className={arrowClass} aria-label="Previous day">
+          <Chevron size={20} className="rotate-90" />
         </button>
-        <div className="flex-1 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2 text-center">
-          <p className="text-sm font-semibold text-stone-800">{formatDisplayDate(value)}</p>
-        </div>
+        <span className="grid h-11 flex-1 place-items-center rounded-lg border border-edge bg-surface text-sm font-medium">
+          {value ? formatDisplayDate(value) : '—'}
+        </span>
         <button
           type="button"
           onClick={handleNextDay}
           disabled={isRightArrowDisabled()}
-          className="w-10 h-10 flex items-center justify-center bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-lg border border-stone-200 transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Go to next day"
+          className={arrowClass}
+          aria-label="Next day"
         >
-          →
+          <Chevron size={20} className="-rotate-90" />
         </button>
       </div>
     </div>

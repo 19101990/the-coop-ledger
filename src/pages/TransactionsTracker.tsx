@@ -4,15 +4,55 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
-import SectionHeader from '../components/SectionHeader';
 import type { TransactionCategory, TransactionEntry } from '../types/types';
 import PageContainer from '../components/PageContainer';
+import Sheet from '../components/Sheet';
+import { Button, Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
+import { inputClass, inputOnPageClass } from '../components/uiStyles';
+import { formatEUR, formatFullDate } from '../utils/format';
+import { compareNewestFirst, signedAmount } from '../utils/transactions';
+import TransactionRow from '../components/TransactionRow';
+import NetResultCard from '../components/NetResultCard';
+
+type Timeframe = 'month' | 'ytd' | 'all';
+type TypeFilter = 'all' | 'income' | 'expense';
+
+const ROWS_PER_STEP = 50;
+
+const signed = signedAmount;
+
+/** Every transaction. Supabase caps a request at 1000 rows, so load in pages. */
+async function loadAllTransactions(isDemo: boolean): Promise<TransactionEntry[]> {
+  if (isDemo) return demoStore.getTransactions();
+
+  const PAGE = 1000;
+  const rows: TransactionEntry[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []).map((t) => ({ ...t, amount: Number(t.amount) })));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
+/** Start date (inclusive) for the summary card, or null for all time. */
+const timeframeStart = (tf: Timeframe): string | null => {
+  const today = new Date();
+  if (tf === 'ytd') return `${today.getFullYear()}-01-01`;
+  if (tf === 'month') return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+  return null;
+};
 
 export default function TransactionsTracker() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
 
   const { isDemo, triggerDemoToast } = useDemo();
 
+  // Add form
   const [transactionDate, setTransactionDate] = useState(getTodayString());
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('expense');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -21,17 +61,28 @@ export default function TransactionsTracker() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [categories, setCategories] = useState<TransactionCategory[]>([]);
-  const [history, setHistory] = useState<TransactionEntry[]>([]);
-  const [summaryData, setSummaryData] = useState({ income: 0, expense: 0 });
-  
-  const [summaryTimeframe, setSummaryTimeframe] = useState<'all' | 'ytd' | 'month'>('month');
+
+  // All transactions; reloaded after a save or delete by bumping `version`.
+  const [allRows, setAllRows] = useState<TransactionEntry[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [version, setVersion] = useState(0);
+
+  // Summary + filters
+  const [summaryTimeframe, setSummaryTimeframe] = useState<Timeframe>('all');
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(ROWS_PER_STEP);
+
+  // Details sheet
+  const [selected, setSelected] = useState<TransactionEntry | null>(null);
+  const [editingSelected, setEditingSelected] = useState(false);
+  const closeDetails = () => {
+    setSelected(null);
+    setEditingSelected(false);
+  };
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
-  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -49,135 +100,72 @@ export default function TransactionsTracker() {
     loadCategories();
   }, [isDemo]);
 
-  // Reset category selection when switching between income/ expense
   useEffect(() => {
-    setSelectedCategory('');
-  }, [transactionType]);
-
-  useEffect(() => {
-    const fetchSummary = async () => {
-      let query = supabase.from('transactions').select('type, amount');
-      
-      const today = new Date();
-      if (summaryTimeframe === 'ytd') {
-        query = query.gte('date', `${today.getFullYear()}-01-01`);
-      } else if (summaryTimeframe === 'month') {
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        query = query.gte('date', `${today.getFullYear()}-${month}-01`);
-      }
-
-      if (isDemo) {
-        const demoHistory = demoStore.getTransactions();
-        let filtered = demoHistory;
-        if (summaryTimeframe === 'ytd') {
-          filtered = demoHistory.filter(t => t.date >= `${today.getFullYear()}-01-01`);
-        } else if (summaryTimeframe === 'month') {
-          const month = String(today.getMonth() + 1).padStart(2, '0');
-          filtered = demoHistory.filter(t => t.date >= `${today.getFullYear()}-${month}-01`);
+    let cancelled = false;
+    loadAllTransactions(isDemo)
+      .then((rows) => {
+        if (!cancelled) {
+          setAllRows(rows);
+          setLoadError(false);
         }
-        const inc = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-        const exp = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-        setSummaryData({ income: inc, expense: exp });
-        return;
-      }
-
-      try {
-        const { data, error } = await query;
-        if (!error && data) {
-          const inc = data.filter(d => d.type === 'income').reduce((sum, d) => sum + Number(d.amount), 0);
-          const exp = data.filter(d => d.type === 'expense').reduce((sum, d) => sum + Number(d.amount), 0);
-          setSummaryData({ income: inc, expense: exp });
-        }
-      } catch (err) {
-        console.error('Failed to fetch summary:', err);
-      }
-    };
-    fetchSummary();
-  }, [summaryTimeframe, history, isDemo]);
-
-  // Load history
-  const fetchHistory = async (pageNumber: number, reset = false) => {
-    if (isLoadingHistory || (!hasMore && !reset)) return;
-    setIsLoadingHistory(true);
-
-    const fromIndex = pageNumber * ITEMS_PER_PAGE;
-    const toIndex = fromIndex + ITEMS_PER_PAGE - 1;
-
-    if (isDemo) {
-      const demoHistory = demoStore.getTransactions();
-      let filtered = demoHistory;
-      if (filterCategory !== 'all') {
-        filtered = demoHistory.filter(t => t.category === filterCategory);
-      }
-      const paged = filtered.slice(fromIndex, toIndex + 1);
-      
-      if (reset) {
-        setHistory(paged);
-        setHasMore(paged.length === ITEMS_PER_PAGE);
-      } else {
-        setHistory(prev => [...prev, ...paged]);
-        if (paged.length < ITEMS_PER_PAGE) setHasMore(false);
-      }
-      setIsLoadingHistory(false);
-      return;
-    }
-
-    try {
-      let query = supabase.from('transactions').select('*').order('date', { ascending: false }).range(fromIndex, toIndex);
-      
-      if (filterCategory !== 'all') {
-        query = query.eq('category', filterCategory);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      if (data) {
-        if (reset) {
-          setHistory(data);
-          setHasMore(data.length === ITEMS_PER_PAGE);
-        } else {
-          setHistory(prev => [...prev, ...data]);
-          if (data.length < ITEMS_PER_PAGE) setHasMore(false);
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
-
-  // React to filter change
-  useEffect(() => {
-    setPage(0);
-    setHasMore(true);
-    fetchHistory(0, true);
-  }, [filterCategory]);
-
-  // Infinite scrolling
-  useEffect(() => {
-    if (page > 0) fetchHistory(page);
-  }, [page]);
-
-  useEffect(() => {
-    const currentElement = observerTarget.current;
-    const observer = new IntersectionObserver(
-      entries => {
-        if (entries[0].isIntersecting && hasMore && !isLoadingHistory) {
-          setPage(prevPage => prevPage + 1);
-        }
-      },
-      { threshold: 1.0 }
-    );
-    if (currentElement) observer.observe(currentElement);
+      })
+      .catch((err) => {
+        console.error('Failed to load transactions:', err);
+        if (!cancelled) setLoadError(true);
+      });
     return () => {
-      if (currentElement) observer.unobserve(currentElement);
+      cancelled = true;
     };
-  }, [hasMore, isLoadingHistory]);
+  }, [isDemo, version]);
 
+  // ---------- Derived data ----------
 
-  // Actions
+  const rows = allRows ?? [];
+
+  // Running balance over the whole ledger, oldest first (date, then id).
+  const balanceById = new Map<number, number>();
+  [...rows]
+    .sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id)
+    .reduce((bal, t) => {
+      const next = bal + signed(t);
+      balanceById.set(t.id, next);
+      return next;
+    }, 0);
+
+  const start = timeframeStart(summaryTimeframe);
+  const summaryRows = start ? rows.filter((t) => t.date >= start) : rows;
+  const summary = {
+    income: summaryRows.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
+    expense: summaryRows.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
+  };
+  const timeframeLabel = { month: 'this month', ytd: 'this year', all: 'all time' }[summaryTimeframe];
+
+  const query = search.trim().toLowerCase();
+  const filtered = rows
+    .filter((t) => typeFilter === 'all' || t.type === typeFilter)
+    .filter((t) => filterCategory === 'all' || t.category === filterCategory)
+    .filter((t) => !query || `${t.description ?? ''} ${t.category}`.toLowerCase().includes(query))
+    .sort(compareNewestFirst);
+
+  const visibleRows = filtered.slice(0, visibleCount);
+  const hasMore = filtered.length > visibleCount;
+
+  // Show more rows as the end of the list scrolls into view.
+  useEffect(() => {
+    const el = observerTarget.current;
+    if (!el || !hasMore) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) setVisibleCount((n) => n + ROWS_PER_STEP);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, visibleCount]);
+
+  // Start from the top of the list whenever the filters change.
+  const resetPaging = () => setVisibleCount(ROWS_PER_STEP);
+
+  // ---------- Actions ----------
+
   const handleSaveTransaction = async () => {
     if (!selectedCategory || !amount || parseFloat(amount) <= 0) {
       alert("Please select a category and enter a valid amount.");
@@ -195,13 +183,10 @@ export default function TransactionsTracker() {
 
     if (isDemo) {
       demoStore.addTransaction(newTx);
-      triggerDemoToast(`Demo Mode: ${transactionType} saved! 💰`);
-      
+      triggerDemoToast(`Demo: ${transactionType} saved to the sandbox`);
       setAmount('');
       setDescription('');
-      setPage(0);
-      setHasMore(true);
-      fetchHistory(0, true);
+      setVersion((v) => v + 1);
       setIsSubmitting(false);
       return;
     }
@@ -210,16 +195,13 @@ export default function TransactionsTracker() {
       const { error } = await supabase.from('transactions').insert([newTx]);
       if (error) throw error;
 
-      triggerDemoToast(`Live Mode: ${transactionType} logged! 💰`);
-      
+      triggerDemoToast(`${transactionType === 'income' ? 'Income' : 'Expense'} saved`);
       setAmount('');
       setDescription('');
-      setPage(0);
-      setHasMore(true);
-      fetchHistory(0, true);
-    } catch (err: any) {
+      setVersion((v) => v + 1);
+    } catch (err) {
       console.error("Error saving tx:", err);
-      alert(`Transaction Failed: ${err.message}`);
+      alert(`Saving failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -230,194 +212,329 @@ export default function TransactionsTracker() {
 
     if (isDemo) {
       demoStore.deleteTransaction(id);
-      triggerDemoToast('Demo Mode: Transaction deleted! 🗑️');
-      setPage(0);
-      fetchHistory(0, true);
+      triggerDemoToast('Demo: transaction deleted from the sandbox');
+      closeDetails();
+      setVersion((v) => v + 1);
       return;
     }
 
     try {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
       if (error) throw error;
-      triggerDemoToast('Live Mode: Transaction deleted! 🗑️');
-      setPage(0);
-      fetchHistory(0, true);
-    } catch (err: any) {
-      alert(`Deletion Failed: ${err.message}`);
+      triggerDemoToast('Transaction deleted');
+      closeDetails();
+      setVersion((v) => v + 1);
+    } catch (err) {
+      alert(`Deletion failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 
-  const profit = summaryData.income - summaryData.expense;
+  // ---------- Render ----------
+
+  const amountClass = (t: TransactionEntry) => (t.type === 'income' ? 'text-income' : 'text-expense');
 
   return (
     <PageContainer>
-      
-      {/* SUMMARY SECTION */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex flex-col justify-between items-start mb-4">
-          <SectionHeader emoji="📊" title="Financial Summary" />
-          <div className="flex bg-stone-100 p-1 rounded-xl w-full">
-            {(['month', 'ytd', 'all'] as const).map(frame => (
-              <button
-                key={frame}
-                onClick={() => setSummaryTimeframe(frame)}
-                className={`flex-1 px-2 py-1.5 text-xs font-bold capitalize rounded-lg transition-colors ${
-                  summaryTimeframe === frame ? 'bg-white shadow-xs text-stone-900' : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {frame}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-emerald-50/50 p-3 rounded-xl border border-green-500 flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Income</p>
-            <p className="text-sm font-bold text-emerald-700">€{summaryData.income.toFixed(2)}</p>
-          </div>
-          <div className="bg-rose-50/50 p-3 rounded-xl border border-red-500 flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider mb-1">Expenses</p>
-            <p className="text-sm font-bold text-rose-700">€{summaryData.expense.toFixed(2)}</p>
-          </div>
-          <div className={`${profit >= 0 ? 'bg-stone-800' : 'bg-red-900'} p-3 rounded-xl shadow-xs flex flex-col justify-center`}>
-            <p className="text-[10px] font-bold text-white/90 uppercase tracking-wider mb-1">P/L (Net)</p>
-            <p className={`text-sm font-bold ${profit >= 0 ? 'text-white' : 'text-red-200'}`}>
-              {profit >= 0 ? '+' : ''}€{profit.toFixed(2)}
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col gap-2.5">
+        <Segmented
+          compact
+          options={[
+            { value: 'month', label: 'Month' },
+            { value: 'ytd', label: 'Year to date' },
+            { value: 'all', label: 'All time' },
+          ]}
+          value={summaryTimeframe}
+          onChange={setSummaryTimeframe}
+        />
+        <NetResultCard periodLabel={timeframeLabel} income={summary.income} expense={summary.expense} />
       </div>
 
-      {/* ADD TRANSACTION FORM */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <h3 className="text-lg font-bold text-stone-900 mb-4">💸 Log Transaction</h3>
-        
-        <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-xl mb-5">
-          <button
-            onClick={() => setTransactionType('expense')}
-            className={`py-2 text-sm font-bold rounded-lg transition-colors ${transactionType === 'expense' ? 'bg-white text-rose-600 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
+      <Section title="Log transaction">
+        <div className="flex flex-col gap-[18px] rounded-[14px] border border-line bg-surface p-4">
+          <Segmented
+            options={[
+              { value: 'expense', label: 'Expense' },
+              { value: 'income', label: 'Income' },
+            ]}
+            value={transactionType}
+            onChange={(v) => {
+              setTransactionType(v);
+              // Categories differ per type, so clear the selection.
+              setSelectedCategory('');
+            }}
+          />
+
+          <DateSelector value={transactionDate} onChange={setTransactionDate} label="Date" />
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field label="Category">
+              <Select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                <option value="" disabled>Select</option>
+                {categories.filter((c) => c.type === transactionType).map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Amount">
+              <label className="flex h-11 items-center gap-px rounded-lg border border-edge bg-app px-3 focus-within:border-ink">
+                <span className="font-mono text-muted">€</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  aria-label="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[15px] text-ink outline-none"
+                />
+              </label>
+            </Field>
+          </div>
+
+          <Field label="Description (optional)">
+            <input
+              type="text"
+              placeholder="e.g. Layer pellets 25kg"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <PrimaryButton onClick={handleSaveTransaction} disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : `Save ${transactionType === 'income' ? 'income' : 'expense'}`}
+          </PrimaryButton>
+        </div>
+      </Section>
+
+      <Section title="History">
+        <div className="flex flex-col gap-2">
+          <input
+            type="search"
+            placeholder="Search entries"
+            aria-label="Search entries"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              resetPaging();
+            }}
+            className={inputOnPageClass}
+          />
+          <Segmented
+            compact
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'income', label: 'Income' },
+              { value: 'expense', label: 'Expenses' },
+            ]}
+            value={typeFilter}
+            onChange={(v) => {
+              setTypeFilter(v);
+              resetPaging();
+            }}
+          />
+          <Select
+            value={filterCategory}
+            onChange={(e) => {
+              setFilterCategory(e.target.value);
+              resetPaging();
+            }}
+            aria-label="Filter by category"
+            onPage
           >
-            Expense
-          </button>
-          <button
-            onClick={() => setTransactionType('income')}
-            className={`py-2 text-sm font-bold rounded-lg transition-colors ${transactionType === 'income' ? 'bg-white text-emerald-600 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
-          >
-            Income
-          </button>
+            <option value="all">All categories</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </Select>
         </div>
 
-        <DateSelector value={transactionDate} onChange={setTransactionDate} label="Transaction Date" />
+        <Card padded={false}>
+          {!allRows ? (
+            loadError ? <EmptyState>Could not load the ledger.</EmptyState> : <LoadingSpinner message="Loading ledger…" size="sm" />
+          ) : filtered.length === 0 ? (
+            <p className="m-0 px-5 py-10 text-center text-sm text-muted">No entries match.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 px-3.5 py-2.5 font-mono text-[10px] tracking-[.08em] text-muted uppercase">
+                <span>Entry</span>
+                <span className="min-w-[76px] text-right">Amount</span>
+                <span className="min-w-[76px] text-right">Balance</span>
+              </div>
 
-        <div className="grid grid-cols-1 gap-4 mt-4 mb-4">
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
-            >
-              <option value="" disabled>Select {transactionType}</option>
-              {categories.filter(c => c.type === transactionType).map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
+              {visibleRows.map((t) => (
+                <TransactionRow key={t.id} tx={t} balance={balanceById.get(t.id) ?? 0} onClick={() => setSelected(t)} />
               ))}
-            </select>
+
+              {hasMore && (
+                <div ref={observerTarget} className="border-t border-divider">
+                  <LoadingSpinner message="Loading more…" size="sm" />
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      </Section>
+
+      <Sheet
+        open={selected !== null}
+        title={editingSelected ? 'Edit entry' : selected ? selected.description || selected.category : ''}
+        onClose={closeDetails}
+      >
+        {selected && editingSelected && (
+          <EditTransactionForm
+            key={selected.id}
+            tx={selected}
+            categories={categories}
+            onCancel={() => setEditingSelected(false)}
+            onSaved={() => {
+              closeDetails();
+              setVersion((v) => v + 1);
+            }}
+          />
+        )}
+        {selected && !editingSelected && (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-baseline justify-between border-b border-ink pb-2">
+              <span className="text-[13px] text-muted">{selected.type === 'income' ? 'Income' : 'Expense'}</span>
+              <span className={`font-mono text-[32px] font-medium tracking-[-.03em] tabular-nums ${amountClass(selected)}`}>
+                {formatEUR(signed(selected))}
+              </span>
+            </div>
+
+            <Card padded={false}>
+              {[
+                ['Date', formatFullDate(selected.date)],
+                ['Category', selected.category],
+                ['Description', selected.description || '—'],
+                ['Balance after', formatEUR(balanceById.get(selected.id) ?? 0)],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-baseline justify-between gap-4 border-t border-divider px-3.5 py-3 first:border-t-0">
+                  <span className="text-xs text-muted">{label}</span>
+                  <span className="text-right text-sm">{value}</span>
+                </div>
+              ))}
+            </Card>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="danger" onClick={() => handleDelete(selected.id)}>
+                Delete entry
+              </Button>
+              <Button onClick={() => setEditingSelected(true)}>Edit entry</Button>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Amount (€)</label>
+        )}
+      </Sheet>
+    </PageContainer>
+  );
+}
+
+/** Edit form shown inside the entry details sheet. */
+function EditTransactionForm({
+  tx,
+  categories,
+  onCancel,
+  onSaved,
+}: {
+  tx: TransactionEntry;
+  categories: TransactionCategory[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { isDemo, triggerDemoToast } = useDemo();
+  const [type, setType] = useState<TransactionEntry['type']>(tx.type);
+  const [date, setDate] = useState(tx.date);
+  const [category, setCategory] = useState(tx.category);
+  const [amount, setAmount] = useState(tx.amount.toFixed(2));
+  const [description, setDescription] = useState(tx.description ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const options = categories.filter((c) => c.type === type).map((c) => c.name);
+  // Keep the entry's own category selectable even if it's not in the current list.
+  if (type === tx.type && !options.includes(tx.category)) options.unshift(tx.category);
+
+  const amountValue = parseFloat(amount);
+  const valid = category !== '' && amountValue > 0;
+
+  const handleSave = async () => {
+    if (!valid || saving) return;
+    setSaving(true);
+    const fields = { type, date, category, amount: amountValue, description: description.trim() || null };
+    try {
+      if (isDemo) {
+        demoStore.updateTransaction(tx.id, fields);
+        triggerDemoToast('Demo: entry updated in the sandbox');
+      } else {
+        const { error } = await supabase.from('transactions').update(fields).eq('id', tx.id);
+        if (error) throw error;
+        triggerDemoToast('Entry updated');
+      }
+      onSaved();
+    } catch (err) {
+      console.error('Failed to update transaction:', err);
+      alert(`Saving failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented
+        options={[
+          { value: 'expense', label: 'Expense' },
+          { value: 'income', label: 'Income' },
+        ]}
+        value={type}
+        onChange={(v) => {
+          setType(v);
+          // Categories differ per type; keep the original when switching back.
+          setCategory(v === tx.type ? tx.category : '');
+        }}
+      />
+
+      <DateSelector value={date} onChange={setDate} label="Date" />
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <Field label="Category">
+          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="" disabled>Select</option>
+            {options.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Amount">
+          <label className="flex h-11 items-center gap-px rounded-lg border border-edge bg-surface px-3 focus-within:border-ink">
+            <span className="font-mono text-muted">€</span>
             <input
               type="number"
+              inputMode="decimal"
               step="0.01"
               min="0"
-              placeholder="0.00"
+              aria-label="Amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
+              className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[15px] text-ink outline-none"
             />
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Description (Optional)</label>
-          <input
-            type="text"
-            placeholder="e.g. Bought 2 bags of laying mash..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
-          />
-        </div>
-
-        <button
-          onClick={handleSaveTransaction}
-          disabled={isSubmitting}
-          className={`w-full font-bold py-3 px-4 rounded-xl transition-colors shadow-xs text-white disabled:opacity-50 ${
-            transactionType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-stone-800 hover:bg-stone-900'
-          }`}
-        >
-          {isSubmitting ? 'Saving...' : `Save ${transactionType === 'income' ? 'Income' : 'Expense'}`}
-        </button>
+          </label>
+        </Field>
       </div>
 
-      {/* TRANSACTION LEDGER */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex flex-col justify-between items-start mb-5 gap-3 border-b border-stone-100 pb-4">
-          <h3 className="text-lg font-bold text-stone-900">📋 Ledger History</h3>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 text-xs font-semibold rounded-lg px-2 py-2 text-stone-600 focus:outline-none"
-          >
-            <option value="all">All Categories</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
+      <Field label="Description (optional)">
+        <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
+      </Field>
 
-        {history.length === 0 && !isLoadingHistory ? (
-          <LoadingSpinner message="No transactions match this filter." size="sm" />
-        ) : (
-          <div className="space-y-2">
-            {history.map((tx) => (
-              <div key={tx.id} className="flex justify-between items-center p-2.5 bg-stone-50 rounded-xl border border-stone-150">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-stone-800 text-sm">
-                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                    <span className="text-[9px] uppercase font-bold text-stone-500 bg-stone-200 px-1.5 py-0.5 rounded-md tracking-wider">
-                      {tx.category}
-                    </span>
-                  </div>
-                  {tx.description && (
-                    <p className="text-[11px] text-stone-500 italic mt-0.5 leading-tight">
-                      {tx.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-2">
-                  <span className={`font-bold text-sm ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {tx.type === 'income' ? '' : '-'}€{Number(tx.amount).toFixed(2)}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(tx.id)}
-                    className="text-[10px] px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded transition-colors cursor-pointer"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {hasMore && (
-          <div ref={observerTarget} className="mt-4 py-2 text-center">
-            <LoadingSpinner message="Loading ledger..." size="sm" />
-          </div>
-        )}
+      <div className="grid grid-cols-2 gap-2">
+        <Button onClick={onCancel} disabled={saving}>
+          Back
+        </Button>
+        <PrimaryButton size="md" onClick={handleSave} disabled={!valid || saving}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </PrimaryButton>
       </div>
-
-    </PageContainer>
+    </div>
   );
 }
