@@ -257,6 +257,7 @@ export const demoStore = {
   getRecentSales: (limit = 10): DemoSale[] =>
     clone(read().sales).sort((a, b) => b.date.localeCompare(a.date)).slice(0, limit),
   getSalesSince: (date: string): DemoSale[] => clone(read().sales.filter(s => s.date >= date)),
+  getAllSales: (): DemoSale[] => clone(read().sales),
   /** Sales with from <= date < to (YYYY-MM-DD). */
   getSalesBetween: (from: string, to: string): DemoSale[] =>
     clone(read().sales.filter(s => s.date >= from && s.date < to)),

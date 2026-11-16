@@ -56,6 +56,12 @@ export const formatDayMonth = (iso: string): string => {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 };
 
+/** "14 Nov" this year, "14 Nov 2025" otherwise. */
+export const formatDayMonthMaybeYear = (iso: string): string => {
+  const year = parseISODate(iso).getFullYear();
+  return year === new Date().getFullYear() ? formatDayMonth(iso) : `${formatDayMonth(iso)} ${year}`;
+};
+
 /** "Sat 14 Nov" */
 export const formatWeekdayDate = (iso: string): string => {
   const d = parseISODate(iso);

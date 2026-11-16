@@ -7,11 +7,12 @@ import PageContainer from '../components/PageContainer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import NetResultCard from '../components/NetResultCard';
 import PantrySection from '../components/PantrySection';
-import { Card, EmptyState, Section } from '../components/ui';
+import { Card, EmptyState, Section, Segmented } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
 import {
   categoryCode,
   formatDayMonth,
+  formatDayMonthMaybeYear,
   formatEUR,
   formatMonthLong,
   formatSignedEUR,
@@ -98,7 +99,6 @@ export default function Overview({ month, onViewLedger }: OverviewProps) {
   // Data is tagged with the month it belongs to, so a stale response never shows under a new month.
   const [loaded, setLoaded] = useState<{ key: string; data: OverviewData } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,14 +128,12 @@ export default function Overview({ month, onViewLedger }: OverviewProps) {
       {!data ? (
         <LoadingSpinner message={error ?? 'Loading overview…'} size="md" />
       ) : (
-        <OverviewContent
-          data={data}
-          monthName={monthName}
-          onViewLedger={onViewLedger}
-          showAllCustomers={showAllCustomers}
-          onToggleCustomers={() => setShowAllCustomers((v) => !v)}
-        />
+        <OverviewContent data={data} monthName={monthName} onViewLedger={onViewLedger} />
       )}
+
+      {/* Outside the month-loading branch so it stays mounted across month switches:
+          keeps the All time / month choice and loads all-time sales only once. */}
+      <CustomersSection monthSales={data?.sales ?? null} monthName={monthName} />
     </PageContainer>
   );
 }
@@ -144,16 +142,12 @@ function OverviewContent({
   data,
   monthName,
   onViewLedger,
-  showAllCustomers,
-  onToggleCustomers,
 }: {
   data: OverviewData;
   monthName: string;
   onViewLedger: () => void;
-  showAllCustomers: boolean;
-  onToggleCustomers: () => void;
 }) {
-  const { transactions, sales, monthEggs, eggsToday, hens } = data;
+  const { transactions, monthEggs, eggsToday, hens } = data;
 
   const income = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
@@ -165,20 +159,6 @@ function OverviewContent({
       .reduce<Record<string, number>>((acc, t) => ({ ...acc, [t.category]: (acc[t.category] || 0) + t.amount }), {})
   ).sort((a, b) => b[1] - a[1]);
   const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v));
-
-  // Customers: paid sales only (gifts excluded), by spend.
-  const customerMap: Record<string, { name: string; spent: number; eggs: number; last: string }> = {};
-  sales
-    .filter((s) => s.status === 'Paid')
-    .forEach((s) => {
-      const c = (customerMap[s.customer_name] ??= { name: s.customer_name, spent: 0, eggs: 0, last: '' });
-      c.spent += Number(s.price) || 0;
-      c.eggs += Math.round((Number(s.amount_boxes) || 0) * 10);
-      if (s.date > c.last) c.last = s.date;
-    });
-  const customers = Object.values(customerMap).sort((a, b) => b.spent - a.spent || b.eggs - a.eggs);
-  const topSpend = customers[0]?.spent || 1;
-  const visibleCustomers = showAllCustomers ? customers : customers.slice(0, CUSTOMERS_COLLAPSED);
 
   const stats = [
     { label: 'Eggs today', value: String(eggsToday) },
@@ -248,42 +228,122 @@ function OverviewContent({
         )}
       </Section>
 
-      <Section title="Customers" aside={`${customers.length} customer${customers.length === 1 ? '' : 's'} · ${monthName}`}>
-        <Card padded={false}>
-          {customers.length === 0 ? (
-            <EmptyState>No sales this month.</EmptyState>
-          ) : (
-            <>
-              {visibleCustomers.map((c) => (
-                <div
-                  key={c.name}
-                  className={`grid grid-cols-[minmax(0,1fr)_64px_68px] items-center gap-3 px-3.5 py-2 ${rowDivider}`}
-                >
-                  <div className="flex min-w-0 flex-col gap-px">
-                    <span className="truncate text-[13px] font-medium">{c.name}</span>
-                    <span className="truncate text-[11px] text-muted">
-                      Last {formatDayMonth(c.last)} · {c.eggs} eggs
-                    </span>
-                  </div>
-                  <div className="h-1 overflow-hidden rounded-sm bg-subtle">
-                    <div className="h-1 rounded-sm bg-income" style={{ width: `${(c.spent / topSpend) * 100}%` }} />
-                  </div>
-                  <span className="text-right font-mono text-[13px] text-income tabular-nums">{formatEUR(c.spent)}</span>
-                </div>
-              ))}
-              {customers.length > CUSTOMERS_COLLAPSED && (
-                <button
-                  type="button"
-                  onClick={onToggleCustomers}
-                  className="h-10 w-full cursor-pointer border-t border-divider bg-transparent text-[13px] text-muted hover:bg-app hover:text-ink"
-                >
-                  {showAllCustomers ? `Show top ${CUSTOMERS_COLLAPSED}` : `Show all ${customers.length}`}
-                </button>
-              )}
-            </>
-          )}
-        </Card>
-      </Section>
     </>
+  );
+}
+
+// ---------- Customers ----------
+
+type CustomerScope = 'all' | 'month';
+
+/** All paid sales ever. Supabase caps a request at 1000 rows, so load in pages. */
+async function loadAllPaidSales(isDemo: boolean): Promise<OverviewSale[]> {
+  if (isDemo) return demoStore.getAllSales().filter((s) => s.status === 'Paid');
+
+  const PAGE = 1000;
+  const rows: OverviewSale[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('sales')
+      .select('customer_name, amount_boxes, price, status, date')
+      .eq('status', 'Paid')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
+/** Customers ranked by spend: paid sales only (gifts excluded). */
+function summariseCustomers(sales: OverviewSale[]) {
+  const map: Record<string, { name: string; spent: number; eggs: number; last: string }> = {};
+  sales
+    .filter((s) => s.status === 'Paid')
+    .forEach((s) => {
+      const c = (map[s.customer_name] ??= { name: s.customer_name, spent: 0, eggs: 0, last: '' });
+      c.spent += Number(s.price) || 0;
+      c.eggs += Math.round((Number(s.amount_boxes) || 0) * 10);
+      if (s.date > c.last) c.last = s.date;
+    });
+  return Object.values(map).sort((a, b) => b.spent - a.spent || b.eggs - a.eggs);
+}
+
+function CustomersSection({ monthSales, monthName }: { monthSales: OverviewSale[] | null; monthName: string }) {
+  const { isDemo } = useDemo();
+  const [scope, setScope] = useState<CustomerScope>('all');
+  const [showAll, setShowAll] = useState(false);
+  // All-time sales don't depend on the month, so they're loaded once, not on every month switch.
+  const [allTimeSales, setAllTimeSales] = useState<OverviewSale[] | null>(null);
+  const [allTimeError, setAllTimeError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadAllPaidSales(isDemo)
+      .then((rows) => !cancelled && setAllTimeSales(rows))
+      .catch((err) => {
+        console.error('Failed to load all-time sales:', err);
+        if (!cancelled) setAllTimeError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemo]);
+
+  const sales = scope === 'all' ? allTimeSales : monthSales;
+  const customers = sales ? summariseCustomers(sales) : [];
+  const topSpend = customers[0]?.spent || 1;
+  const visible = showAll ? customers : customers.slice(0, CUSTOMERS_COLLAPSED);
+  const periodLabel = scope === 'all' ? 'all time' : monthName;
+
+  return (
+    <Section title="Customers" aside={sales ? `${customers.length} customer${customers.length === 1 ? '' : 's'} · ${periodLabel}` : undefined}>
+      <Segmented
+        compact
+        options={[
+          { value: 'all', label: 'All time' },
+          { value: 'month', label: `${monthName} only` },
+        ]}
+        value={scope}
+        onChange={setScope}
+      />
+      <Card padded={false}>
+        {!sales ? (
+          scope === 'all' && allTimeError ? (
+            <EmptyState>Could not load customers.</EmptyState>
+          ) : (
+            <LoadingSpinner message="Loading customers…" size="sm" />
+          )
+        ) : customers.length === 0 ? (
+          <EmptyState>{scope === 'all' ? 'No paid sales yet.' : `No paid sales in ${monthName}.`}</EmptyState>
+        ) : (
+          <>
+            {visible.map((c) => (
+              <div key={c.name} className={`grid grid-cols-[minmax(0,1fr)_64px_68px] items-center gap-3 px-3.5 py-2 ${rowDivider}`}>
+                <div className="flex min-w-0 flex-col gap-px">
+                  <span className="truncate text-[13px] font-medium">{c.name}</span>
+                  <span className="truncate text-[11px] text-muted">
+                    Last {formatDayMonthMaybeYear(c.last)} · {c.eggs} eggs
+                  </span>
+                </div>
+                <div className="h-1 overflow-hidden rounded-sm bg-subtle">
+                  <div className="h-1 rounded-sm bg-income" style={{ width: `${(c.spent / topSpend) * 100}%` }} />
+                </div>
+                <span className="text-right font-mono text-[13px] text-income tabular-nums">{formatEUR(c.spent)}</span>
+              </div>
+            ))}
+            {customers.length > CUSTOMERS_COLLAPSED && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="h-10 w-full cursor-pointer border-t border-divider bg-transparent text-[13px] text-muted hover:bg-app hover:text-ink"
+              >
+                {showAll ? `Show top ${CUSTOMERS_COLLAPSED}` : `Show all ${customers.length}`}
+              </button>
+            )}
+          </>
+        )}
+      </Card>
+    </Section>
   );
 }
