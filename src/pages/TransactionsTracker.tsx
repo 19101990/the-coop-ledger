@@ -7,7 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import type { TransactionCategory, TransactionEntry } from '../types/types';
 import PageContainer from '../components/PageContainer';
 import Sheet from '../components/Sheet';
-import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
+import { Button, Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
 import { inputClass } from '../components/uiStyles';
 import { formatEUR, formatFullDate } from '../utils/format';
 import { compareNewestFirst, signedAmount } from '../utils/transactions';
@@ -396,13 +396,9 @@ export default function TransactionsTracker() {
               ))}
             </Card>
 
-            <button
-              type="button"
-              onClick={() => handleDelete(selected.id)}
-              className="h-[52px] w-full cursor-pointer rounded-xl border border-expense/40 bg-surface text-base font-medium text-expense hover:bg-expense/5"
-            >
+            <Button variant="danger" size="lg" className="w-full" onClick={() => handleDelete(selected.id)}>
               Delete entry
-            </button>
+            </Button>
           </div>
         )}
       </Sheet>

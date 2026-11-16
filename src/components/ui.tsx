@@ -80,6 +80,30 @@ export function PrimaryButton({ className = '', ...props }: React.ButtonHTMLAttr
   );
 }
 
+type ButtonVariant = 'secondary' | 'danger';
+const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
+  secondary: 'border-edge text-ink hover:bg-subtle active:bg-line',
+  danger: 'border-expense/40 text-expense hover:bg-expense/5 active:bg-expense/10',
+};
+
+/** Outlined button for secondary actions (Edit, Delete…). Sizes: md 40px, lg 52px. */
+export function Button({
+  variant = 'secondary',
+  size = 'md',
+  className = '',
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: 'md' | 'lg' }) {
+  return (
+    <button
+      type="button"
+      className={`cursor-pointer border bg-surface font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+        size === 'lg' ? 'h-[52px] rounded-xl text-base' : 'h-10 rounded-lg px-4 text-[13px]'
+      } ${BUTTON_VARIANTS[variant]} ${className}`}
+      {...props}
+    />
+  );
+}
+
 type TextButtonTone = 'muted' | 'ink' | 'danger';
 const TONES: Record<TextButtonTone, string> = {
   muted: 'text-muted hover:text-ink',
@@ -181,12 +205,33 @@ export function Select({ className = '', children, ...props }: React.SelectHTMLA
       >
         {children}
       </select>
-      <span className="pointer-events-none absolute top-3 right-3.5 text-xs text-muted">▾</span>
+      <Chevron className="pointer-events-none absolute top-3.5 right-3 text-muted" />
     </div>
   );
 }
 
 // ---------- Display ----------
+
+/**
+ * Line chevron pointing down ("v" from a ">" turned 90°). Pass `className` for colour and
+ * e.g. `group-open:rotate-180` to flip it when a <details> opens.
+ */
+export function Chevron({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={`h-4 w-4 flex-none transition-transform ${className}`}
+    >
+      <path d="M4 6l4 4 4-4" />
+    </svg>
+  );
+}
 
 /** Small card with a label and a big mono number. */
 export function StatCard({ label, value }: { label: string; value: React.ReactNode }) {

@@ -6,7 +6,7 @@ import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import type { FlockMember } from '../types/types';
 import PageContainer from '../components/PageContainer';
-import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
+import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider, textareaClass } from '../components/uiStyles';
 
 export default function FlockManager() {
@@ -349,7 +349,7 @@ export default function FlockManager() {
                         .join(' · ')}
                     </span>
                   </div>
-                  <span className="text-xs text-muted transition-transform group-open:rotate-180">▾</span>
+                  <Chevron className="text-muted group-open:rotate-180" />
                 </summary>
 
                 <div className="flex flex-col gap-3 px-3.5 pb-3.5">
@@ -396,7 +396,7 @@ export default function FlockManager() {
         <details className="group rounded-xl border border-line bg-surface">
           <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-1.5 text-[13px] text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
             Archived birds ({archivedBirds.length})
-            <span className="transition-transform group-open:rotate-180">▾</span>
+            <Chevron className="group-open:rotate-180" />
           </summary>
           <div>
             {archivedBirds.map((bird) => (

@@ -6,10 +6,12 @@ import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageContainer from '../components/PageContainer';
 import EggsSummary from '../components/EggsSummary';
-import { Card, EmptyState, Section, TextButton } from '../components/ui';
+import { Button, Card, Chevron, EmptyState, Section } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
 import { formatWeekdayDate } from '../utils/format';
 import { EGG_SWATCHES, EGG_VARIETIES, eggVarietyLabel, logTotal } from '../utils/eggs';
+
+const boxes = (n: number) => (n === 1 ? 'box' : 'boxes');
 
 interface DailyLogProps {
   /** Open the daily log sheet for a new entry (same as the bottom-bar "+"). */
@@ -158,43 +160,55 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
                 .map((v) => ({ v, n: log[`eggs_${v}`] }))
                 .filter(({ n }) => n > 0);
 
+              const total = logTotal(log);
+
+              // Collapsed by default: date, eggs and boxes. Tap to see colours, notes and actions.
               return (
-                <div key={log.id} className={`flex flex-col gap-2 px-3.5 py-3 ${rowDivider}`}>
-                  <div className="flex items-baseline justify-between gap-3">
+                <details key={log.id} className={`group ${rowDivider}`}>
+                  <summary className="grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto_auto] items-baseline gap-x-3 gap-y-1 px-3.5 py-3 select-none hover:bg-app [&::-webkit-details-marker]:hidden">
                     <span className="text-sm font-medium">{formatWeekdayDate(log.date)}</span>
                     <span className="font-mono text-sm tabular-nums">
-                      {logTotal(log)} <span className="font-sans text-xs text-muted">eggs</span>
+                      {total} <span className="font-sans text-xs text-muted">egg{total === 1 ? '' : 's'}</span>
                     </span>
-                  </div>
+                    <Chevron className="self-center text-muted group-open:rotate-180" />
+                    <span className="col-span-full text-xs text-muted">
+                      For sale <span className="font-mono text-ink">{log.boxes_for_sale}</span> {boxes(log.boxes_for_sale)}
+                      {' · '}
+                      Personal <span className="font-mono text-ink">{log.boxes_personal}</span> {boxes(log.boxes_personal)}
+                    </span>
+                  </summary>
 
-                  {varieties.length > 0 && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
-                      {varieties.map(({ v, n }) => (
-                        <span key={v} className="flex items-center gap-1.5">
-                          <span
-                            className="h-[10px] w-2 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(28,27,24,.2)]"
-                            style={{ background: EGG_SWATCHES[v] }}
-                          />
-                          {eggVarietyLabel(v)} <span className="font-mono text-ink">{n}</span>
-                        </span>
-                      ))}
+                  <div className="flex flex-col gap-4 px-3.5 pt-1 pb-3.5">
+                    {varieties.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                        {varieties.map(({ v, n }) => (
+                          <span key={v} className="flex items-center gap-2 text-[13px]">
+                            <span
+                              className="h-[13px] w-2.5 flex-none rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(28,27,24,.2)]"
+                              style={{ background: EGG_SWATCHES[v] }}
+                            />
+                            <span className="flex-1 text-ink-soft">{eggVarietyLabel(v)}</span>
+                            <span className="font-mono tabular-nums">{n}</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[13px] text-muted">No eggs counted.</span>
+                    )}
+
+                    {log.notes && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-muted">Notes</span>
+                        <p className="m-0 text-[13px] text-ink-soft">{log.notes}</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button onClick={() => onEdit(log)}>Edit</Button>
+                      <Button variant="danger" onClick={() => handleDeleteLog(log.id)}>Delete</Button>
                     </div>
-                  )}
-
-                  {(log.boxes_for_sale > 0 || log.boxes_personal > 0) && (
-                    <div className="flex gap-3 text-xs text-muted">
-                      {log.boxes_for_sale > 0 && <span>For sale <span className="font-mono text-ink">{log.boxes_for_sale}</span> boxes</span>}
-                      {log.boxes_personal > 0 && <span>Personal <span className="font-mono text-ink">{log.boxes_personal}</span> boxes</span>}
-                    </div>
-                  )}
-
-                  {log.notes && <p className="m-0 text-xs text-ink-soft">{log.notes}</p>}
-
-                  <div className="flex justify-end gap-4">
-                    <TextButton onClick={() => onEdit(log)}>Edit</TextButton>
-                    <TextButton tone="danger" onClick={() => handleDeleteLog(log.id)}>Delete</TextButton>
                   </div>
-                </div>
+                </details>
               );
             })
           )}
