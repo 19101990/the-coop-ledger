@@ -17,7 +17,6 @@ import {
   monthRange,
   type YearMonth,
 } from '../utils/format';
-import { logTotal, todayISO } from '../utils/eggs';
 import { compareNewestFirst } from '../utils/transactions';
 import { fetchAllPages } from '../utils/supabasePaging';
 
@@ -38,31 +37,21 @@ interface OverviewSale {
 interface OverviewData {
   transactions: TransactionEntry[];
   sales: OverviewSale[];
-  monthEggs: number;
-  eggsToday: number;
-  /** Active hens, or null if unknown. */
-  hens: number | null;
 }
-
-const EGG_COLUMNS = 'date, eggs_chocolate, eggs_brown, eggs_beige, eggs_white, eggs_olive, eggs_blue, eggs_nato, eggs_perlhuhn';
 
 async function loadOverview(isDemo: boolean, month: YearMonth): Promise<OverviewData> {
   const { from, to } = monthRange(month);
-  const today = todayISO();
 
   // 🛑 DEMO MODE — sample data only
   if (isDemo) {
     return {
       transactions: demoStore.getTransactions().filter((t) => t.date >= from && t.date < to),
       sales: demoStore.getSalesBetween(from, to),
-      monthEggs: demoStore.getDailyLogsBetween(from, to).reduce((sum, l) => sum + logTotal(l), 0),
-      eggsToday: demoStore.getDailyLogsSince(today).filter((l) => l.date === today).reduce((sum, l) => sum + logTotal(l), 0),
-      hens: demoStore.getFlock().filter((b) => b.status === 'Active' && b.sex === 'Hen').length,
     };
   }
 
   // 🟢 LIVE MODE
-  const [txRes, salesRes, logsRes, todayRes, hensRes] = await Promise.all([
+  const [txRes, salesRes] = await Promise.all([
     supabase
       .from('transactions')
       .select('id, date, type, category, description, amount')
@@ -71,22 +60,14 @@ async function loadOverview(isDemo: boolean, month: YearMonth): Promise<Overview
       .order('date', { ascending: false })
       .order('id', { ascending: false }),
     supabase.from('sales').select('customer_name, amount_boxes, price, status, date').gte('date', from).lt('date', to),
-    supabase.from('daily_log').select(EGG_COLUMNS).gte('date', from).lt('date', to),
-    supabase.from('daily_log').select(EGG_COLUMNS).eq('date', today),
-    supabase.from('flock_members').select('id', { count: 'exact', head: true }).eq('status', 'Active').eq('sex', 'Hen'),
   ]);
 
-  for (const res of [txRes, salesRes, logsRes, todayRes]) {
-    if (res.error) throw res.error;
-  }
-  if (hensRes.error) console.error('Could not count hens:', hensRes.error.message);
+  if (txRes.error) throw txRes.error;
+  if (salesRes.error) throw salesRes.error;
 
   return {
     transactions: (txRes.data ?? []).map((t) => ({ ...t, amount: Number(t.amount) })),
     sales: salesRes.data ?? [],
-    monthEggs: (logsRes.data ?? []).reduce((sum, l) => sum + logTotal(l), 0),
-    eggsToday: (todayRes.data ?? []).reduce((sum, l) => sum + logTotal(l), 0),
-    hens: hensRes.error ? null : hensRes.count ?? null,
   };
 }
 
@@ -148,31 +129,16 @@ function OverviewContent({
   monthName: string;
   onViewLedger: () => void;
 }) {
-  const { transactions, monthEggs, eggsToday, hens } = data;
+  const { transactions } = data;
 
   const income = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-
-  const stats = [
-    { label: 'Eggs today', value: String(eggsToday) },
-    { label: 'Lay rate', value: hens ? `${Math.round((eggsToday / hens) * 100)}%` : '—' },
-    { label: 'Cost / egg', value: monthEggs ? formatEUR(expense / monthEggs) : '—' },
-  ];
 
   return (
     <>
       <NetResultCard periodLabel={monthName} income={income} expense={expense} />
 
       <PantrySection />
-
-      <section className="grid grid-cols-3 rounded-xl border border-line bg-surface">
-        {stats.map((s, i) => (
-          <div key={s.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>
-            <span className="text-[11px] text-muted">{s.label}</span>
-            <span className="font-mono text-xl font-medium tabular-nums">{s.value}</span>
-          </div>
-        ))}
-      </section>
 
       <Section title="Recent entries" action={{ label: 'View ledger →', onClick: onViewLedger }}>
         <Card padded={false}>

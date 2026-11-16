@@ -13,12 +13,15 @@ export default defineConfig({
       devOptions: {
         enabled: true
       },
+      // Precache the icons referenced from index.html (the manifest icons are added automatically).
+      includeAssets: ['favicon.svg', 'favicon.ico', 'favicon-32.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'The Coop',
         short_name: 'The Coop',
         description: 'Internal farm management ledger',
-        theme_color: '#f4f4f5',
-        background_color: '#f4f4f5',
+        // Status/title bar matches the app's light header; the launch splash uses the icon's dark ink.
+        theme_color: '#f8f8f9',
+        background_color: '#18181b',
         display: 'standalone',
         icons: [
           {
@@ -30,6 +33,13 @@ export default defineConfig({
             src: '/icon-512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            // Full-bleed version Android can crop to circles/squircles without clipping the egg.
+            src: '/icon-maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
           }
         ]
       }

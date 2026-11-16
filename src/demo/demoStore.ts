@@ -277,9 +277,6 @@ export const demoStore = {
       .slice(from, to + 1);
   },
   getDailyLogsSince: (date: string): DBLogEntry[] => clone(read().dailyLogs.filter(l => l.date >= date)),
-  /** Logs with from <= date < to (YYYY-MM-DD). */
-  getDailyLogsBetween: (from: string, to: string): DBLogEntry[] =>
-    clone(read().dailyLogs.filter(l => l.date >= from && l.date < to)),
   addDailyLog(log: Omit<DBLogEntry, 'id' | 'created_at'>): DBLogEntry {
     const entry: DBLogEntry = { id: nextId(), created_at: new Date().toISOString(), ...log };
     update('dailyLogs', list => [entry, ...list]);
