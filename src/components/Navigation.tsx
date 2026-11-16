@@ -81,9 +81,10 @@ function NavTab({ label, active, onClick }: { label: string; active: boolean; on
     <button
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
-      className={`flex h-[52px] cursor-pointer flex-col items-center justify-center gap-[5px] bg-transparent ${active ? 'text-ink' : 'text-muted'}`}
+      className={`relative grid h-[52px] cursor-pointer place-items-center bg-transparent ${active ? 'text-ink' : 'text-muted'}`}
     >
-      <span className={`h-[3px] w-[18px] rounded-sm ${active ? 'bg-ink' : 'bg-transparent'}`} />
+      {/* Active marker pinned to the top edge, outside the layout, so the label stays centred. */}
+      {active && <span className="absolute top-1 left-1/2 h-[3px] w-[18px] -translate-x-1/2 rounded-sm bg-ink" aria-hidden="true" />}
       <span className={`text-xs ${active ? 'font-semibold' : 'font-normal'}`}>{label}</span>
     </button>
   );
@@ -102,9 +103,12 @@ export function BottomNav({ activeTab, setActiveTab, onAdd }: BottomNavProps) {
           type="button"
           onClick={onAdd}
           aria-label="Add daily log"
-          className="h-[52px] w-[52px] cursor-pointer rounded-[14px] bg-ink text-[26px] leading-none font-light text-app active:bg-ink-pressed"
+          className="grid h-[52px] w-[52px] cursor-pointer place-items-center rounded-[14px] bg-ink text-app active:bg-ink-pressed"
         >
-          +
+          {/* Drawn plus (not a text "+") so it sits exactly in the centre. */}
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2.75} strokeLinecap="round" aria-hidden="true">
+            <path d="M12 4.5v15M4.5 12h15" />
+          </svg>
         </button>
       </div>
       {BOTTOM_TABS_RIGHT.map(tab)}
