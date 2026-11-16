@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
-import LoadingSpinner from '../components/LoadingSpinner';
-import FormInput from '../components/FormInput';
-import PageContainer from '../components/PageContainer';
-import Sheet from '../components/Sheet';
-import { PrimaryButton, Section } from '../components/ui';
+import LoadingSpinner from './LoadingSpinner';
+import FormInput from './FormInput';
+import Sheet from './Sheet';
+import { PrimaryButton, Section } from './ui';
 
-export default function PantryManager() {
+/** Pantry stock strip with an Adjust sheet (shown on the Overview tab). */
+export default function PantrySection() {
   const { isDemo } = useDemo();
 
   const [boxesForSale, setBoxesForSale] = useState(0);
@@ -113,7 +113,7 @@ export default function PantryManager() {
 
 
   if (loading) {
-    return <LoadingSpinner message="Loading pantry inventory..." size="md" />;
+    return <LoadingSpinner message="Loading pantry…" size="sm" />;
   }
 
   const numericChange = (setter: (n: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,8 +129,8 @@ export default function PantryManager() {
   const onHand = (boxesForSale + boxesPersonal) * 10 + looseEggs;
 
   return (
-    <PageContainer>
-      <Section title="On the shelves" action={{ label: 'Adjust', onClick: () => setIsOpen(true) }}>
+    <>
+      <Section title="Pantry" action={{ label: 'Adjust', onClick: () => setIsOpen(true) }}>
         <div className="grid grid-cols-3 rounded-xl border border-line bg-surface">
           {cells.map((c, i) => (
             <div key={c.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>
@@ -171,6 +171,6 @@ export default function PantryManager() {
           </PrimaryButton>
         </form>
       </Sheet>
-    </PageContainer>
+    </>
   );
 }

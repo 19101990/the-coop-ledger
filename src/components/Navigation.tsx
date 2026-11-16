@@ -4,41 +4,65 @@ import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
 import { demoStore } from '../demo/demoStore';
 import Sheet from './Sheet';
-import { TAB_TITLES, BOTTOM_TABS, MENU_TABS } from './navigationConfig';
+import { TAB_TITLES, NAV_LABELS, BOTTOM_TABS_LEFT, BOTTOM_TABS_RIGHT, MENU_TABS } from './navigationConfig';
 
 // ---------- Header ----------
+
+interface MonthSwitcherProps {
+  label: string;
+  onPrev: () => void;
+  onNext: () => void;
+  nextDisabled: boolean;
+}
 
 interface HeaderProps {
   title: string;
   onOpenMenu: () => void;
+  /** Month switcher shown on month-scoped screens (Overview). */
+  month?: MonthSwitcherProps;
 }
 
-export function Header({ title, onOpenMenu }: HeaderProps) {
+function MonthSwitcher({ label, onPrev, onNext, nextDisabled }: MonthSwitcherProps) {
+  const arrow =
+    'h-8 w-8 cursor-pointer rounded-md bg-transparent text-base text-muted hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent';
+  return (
+    <div className="flex items-center gap-0.5 rounded-lg border border-edge bg-surface p-0.5">
+      <button type="button" onClick={onPrev} aria-label="Previous month" className={arrow}>‹</button>
+      <span className="min-w-16 text-center font-mono text-xs">{label}</span>
+      <button type="button" onClick={onNext} disabled={nextDisabled} aria-label="Next month" className={arrow}>›</button>
+    </div>
+  );
+}
+
+export function Header({ title, onOpenMenu, month }: HeaderProps) {
   const { isDemo } = useDemo();
 
   return (
     <header className="sticky top-0 z-[5] flex items-end justify-between gap-3 border-b border-line bg-app px-5 pt-[18px] pb-3">
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.08em] text-muted">
           Brandeshof Coop
           {isDemo && (
             <span className="rounded bg-gift-bg px-1.5 py-px text-[10px] text-gift">Demo</span>
           )}
         </span>
-        <h1 className="m-0 text-2xl font-semibold tracking-[-.02em]">{title}</h1>
+        <h1 className="m-0 truncate text-2xl font-semibold tracking-[-.02em]">{title}</h1>
       </div>
 
-      <button
-        onClick={onOpenMenu}
-        aria-label="Open menu"
-        className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-muted hover:bg-subtle hover:text-ink"
-      >
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-          <circle cx="3" cy="8" r="1.5" />
-          <circle cx="8" cy="8" r="1.5" />
-          <circle cx="13" cy="8" r="1.5" />
-        </svg>
-      </button>
+      <div className="flex flex-none items-center gap-2">
+        {month && <MonthSwitcher {...month} />}
+        <button
+          onClick={onOpenMenu}
+          aria-label="Open menu"
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-muted hover:bg-subtle hover:text-ink"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.5" />
+            <circle cx="8" cy="8" r="1.5" />
+            <circle cx="13" cy="8" r="1.5" />
+          </svg>
+        </button>
+      </div>
     </header>
   );
 }
@@ -48,6 +72,8 @@ export function Header({ title, onOpenMenu }: HeaderProps) {
 interface BottomNavProps {
   activeTab: Tab;
   setActiveTab: (tab: Tab) => void;
+  /** Opens the daily log sheet. */
+  onAdd: () => void;
 }
 
 function NavTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -63,12 +89,25 @@ function NavTab({ label, active, onClick }: { label: string; active: boolean; on
   );
 }
 
-export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
+export function BottomNav({ activeTab, setActiveTab, onAdd }: BottomNavProps) {
+  const tab = (id: Tab) => (
+    <NavTab key={id} label={NAV_LABELS[id] ?? TAB_TITLES[id]} active={activeTab === id} onClick={() => setActiveTab(id)} />
+  );
+
   return (
-    <nav className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[440px] -translate-x-1/2 grid-cols-4 items-center border-t border-line bg-surface px-2 pt-1.5 pb-[calc(6px+env(safe-area-inset-bottom))]">
-      {BOTTOM_TABS.map(id => (
-        <NavTab key={id} label={TAB_TITLES[id]} active={activeTab === id} onClick={() => setActiveTab(id)} />
-      ))}
+    <nav className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[440px] -translate-x-1/2 grid-cols-5 items-center border-t border-line bg-surface px-2 pt-1.5 pb-[calc(6px+env(safe-area-inset-bottom))]">
+      {BOTTOM_TABS_LEFT.map(tab)}
+      <div className="grid place-items-center">
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label="Add daily log"
+          className="h-[52px] w-[52px] cursor-pointer rounded-[14px] bg-ink text-[26px] leading-none font-light text-app active:bg-ink-pressed"
+        >
+          +
+        </button>
+      </div>
+      {BOTTOM_TABS_RIGHT.map(tab)}
     </nav>
   );
 }

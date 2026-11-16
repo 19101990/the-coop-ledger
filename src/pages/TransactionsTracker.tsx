@@ -8,7 +8,8 @@ import type { TransactionCategory, TransactionEntry } from '../types/types';
 import PageContainer from '../components/PageContainer';
 import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider } from '../components/uiStyles';
-import { formatDayMonth, formatEUR, formatSignedEUR } from '../utils/format';
+import { categoryCode, formatDayMonth, formatSignedEUR } from '../utils/format';
+import NetResultCard from '../components/NetResultCard';
 
 export default function TransactionsTracker() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
@@ -249,12 +250,7 @@ export default function TransactionsTracker() {
     }
   };
 
-  const profit = summaryData.income - summaryData.expense;
-
-  const totalFlow = summaryData.income + summaryData.expense;
-  const incomeShare = totalFlow ? (summaryData.income / totalFlow) * 100 : 50;
   const timeframeLabel = { month: 'this month', ytd: 'this year', all: 'all time' }[summaryTimeframe];
-  const categoryCode = (name: string) => name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '··';
 
   return (
     <PageContainer>
@@ -270,31 +266,7 @@ export default function TransactionsTracker() {
           onChange={setSummaryTimeframe}
         />
 
-        <section className="flex flex-col gap-[18px] rounded-[14px] bg-ink p-5 text-app">
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs text-on-dark-muted">Net result · {timeframeLabel}</span>
-            <span className="font-mono text-[38px] font-medium tracking-[-.03em] tabular-nums">{formatSignedEUR(profit)}</span>
-          </div>
-          <div className="flex h-1.5 overflow-hidden rounded-[3px] bg-expense-on-dark">
-            <div className="bg-income-on-dark" style={{ width: `${incomeShare}%` }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="flex items-center gap-1.5 text-xs text-on-dark-muted">
-                <span className="h-2 w-2 rounded-xs bg-income-on-dark" />
-                Income
-              </span>
-              <span className="font-mono text-[17px] tabular-nums">{formatEUR(summaryData.income)}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="flex items-center gap-1.5 text-xs text-on-dark-muted">
-                <span className="h-2 w-2 rounded-xs bg-expense-on-dark" />
-                Expenses
-              </span>
-              <span className="font-mono text-[17px] tabular-nums">{formatEUR(summaryData.expense)}</span>
-            </div>
-          </div>
-        </section>
+        <NetResultCard periodLabel={timeframeLabel} income={summaryData.income} expense={summaryData.expense} />
       </div>
 
       <Section title="Log transaction">

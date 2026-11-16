@@ -1,6 +1,6 @@
 export type EggVariety = 'chocolate' | 'brown' | 'beige' | 'white' | 'blue' | 'olive' | 'nato' | 'perlhuhn';
 
-export type Tab = 'daily-log' | 'pantry' | 'sales' | 'flock' | 'transactions' | 'reports';
+export type Tab = 'overview' | 'sales' | 'eggs' | 'transactions' | 'flock' | 'reports';
 
 export interface EggCounts {
   chocolate: number;
