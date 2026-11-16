@@ -13,7 +13,7 @@ export default function CounterControl({ label, value, onDecrement, onIncrement,
     <div className="flex items-center gap-3 border-t border-divider py-1 pr-1.5 pl-3.5 first:border-t-0">
       {swatch && (
         <span
-          className="h-[15px] w-3 flex-none rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(28,27,24,.2)]"
+          className="h-[15px] w-3 flex-none rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(24,24,27,.2)]"
           style={{ background: swatch }}
         />
       )}

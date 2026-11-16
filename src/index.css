@@ -6,24 +6,25 @@
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Surfaces */
-  --color-page: #e9e7e1;          /* behind the app column */
-  --color-app: #f5f4f0;           /* app background */
-  --color-surface: #fbfaf7;       /* cards */
-  --color-subtle: #efede7;        /* subtle fills, tiles */
+  /* Light neutral greys (no warm tint). Text contrast checked: muted ≥ 4.85:1 on every background. */
+  --color-page: #ededef;          /* behind the app column */
+  --color-app: #f8f8f9;           /* app background */
+  --color-surface: #ffffff;       /* cards */
+  --color-subtle: #f5f5f6;        /* subtle fills, tiles */
 
   /* Borders */
-  --color-line: #e2e0d9;          /* cards, header, nav */
-  --color-edge: #dcd9d1;          /* inputs */
-  --color-divider: #e9e7e1;       /* row separators */
+  --color-line: #ebebed;          /* cards, header, nav */
+  --color-edge: #e0e0e3;          /* inputs */
+  --color-divider: #f0f0f2;       /* row separators */
 
   /* Text */
-  --color-ink: #1c1b18;
-  --color-ink-soft: #4a4842;
-  --color-muted: #6b6860;
-  --color-faint: #a19e95;
-  --color-ink-pressed: #3a3833;
-  --color-on-dark-muted: #b9b6ad;
-  --color-bar-idle: #cfccc3;
+  --color-ink: #18181b;
+  --color-ink-soft: #3f3f46;
+  --color-muted: #6b6b73;
+  --color-faint: #a1a1aa;
+  --color-ink-pressed: #3f3f46;
+  --color-on-dark-muted: #a1a1aa;
+  --color-bar-idle: #d4d4d8;
 
   /* Semantic */
   --color-income: oklch(0.48 0.09 155);

@@ -8,7 +8,7 @@ import type { TransactionCategory, TransactionEntry } from '../types/types';
 import PageContainer from '../components/PageContainer';
 import Sheet from '../components/Sheet';
 import { Button, Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
-import { inputClass } from '../components/uiStyles';
+import { inputClass, inputOnPageClass } from '../components/uiStyles';
 import { formatEUR, formatFullDate } from '../utils/format';
 import { compareNewestFirst, signedAmount } from '../utils/transactions';
 import TransactionRow from '../components/TransactionRow';
@@ -320,7 +320,7 @@ export default function TransactionsTracker() {
               setSearch(e.target.value);
               resetPaging();
             }}
-            className={inputClass}
+            className={inputOnPageClass}
           />
           <Segmented
             compact
@@ -342,6 +342,7 @@ export default function TransactionsTracker() {
               resetPaging();
             }}
             aria-label="Filter by category"
+            onPage
           >
             <option value="all">All categories</option>
             {categories.map((c) => (

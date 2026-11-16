@@ -184,7 +184,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
                         {varieties.map(({ v, n }) => (
                           <span key={v} className="flex items-center gap-2 text-[13px]">
                             <span
-                              className="h-[13px] w-2.5 flex-none rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(28,27,24,.2)]"
+                              className="h-[13px] w-2.5 flex-none rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(24,24,27,.2)]"
                               style={{ background: EGG_SWATCHES[v] }}
                             />
                             <span className="flex-1 text-ink-soft">{eggVarietyLabel(v)}</span>

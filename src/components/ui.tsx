@@ -208,11 +208,21 @@ export function ScopeToggle<T extends string>({
 
 // ---------- Form controls ----------
 
-export function Select({ className = '', children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({
+  className = '',
+  children,
+  onPage = false,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement> & {
+  /** True when the select sits on the grey page background rather than in a white card: makes it white. */
+  onPage?: boolean;
+}) {
   return (
     <div className="relative">
       <select
-        className={`h-11 w-full appearance-none rounded-lg border border-edge bg-app pr-9 pl-3 text-[15px] text-ink outline-none focus:border-ink ${className}`}
+        className={`h-11 w-full appearance-none rounded-lg border border-edge pr-9 pl-3 text-[15px] text-ink outline-none focus:border-ink ${
+          onPage ? 'bg-surface' : 'bg-app'
+        } ${className}`}
         {...props}
       >
         {children}

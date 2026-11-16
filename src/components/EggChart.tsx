@@ -6,7 +6,7 @@ const num = new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 1 });
 /**
  * Sequential green ramp, light → dark (OKLCH hue 155, the app's income green; L 0.74 → 0.39).
  * Checked with the dataviz validator: lightness strictly decreasing, adjacent steps ≥ 0.06 apart,
- * single hue, lightest step 2.12:1 on the card surface (#fbfaf7) so low bars never vanish.
+ * single hue, lightest step 2.21:1 on the white card surface (#ffffff) so low bars never vanish.
  */
 const GREENS = ['#78bd91', '#5ca879', '#419363', '#2f7d50', '#216740', '#195131'];
 
