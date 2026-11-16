@@ -7,6 +7,7 @@ import PageContainer from '../components/PageContainer';
 import { Card, EmptyState, Section } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
 import { formatEUR } from '../utils/format';
+import { fetchAllPages } from '../utils/supabasePaging';
 
 // Live app data starts here; earlier years come from legacy_yearly_ledger.
 const LIVE_DATA_START = '2026-01-01';
@@ -16,8 +17,12 @@ type EggColumns = 'eggs_chocolate' | 'eggs_brown' | 'eggs_beige' | 'eggs_white' 
 interface ReportSourceData {
   legacyData: Array<{ year: number; eggs_collected: number; eggs_sold: number; revenue: number }>;
   liveLogs: Array<{ date: string } & Record<EggColumns, number>>;
-  liveSales: Array<{ date: string; amount_boxes: number | string; price: number | string }>;
+  liveSales: Array<{ date: string; amount_boxes: number | string }>;
+  /** All ledger entries since LIVE_DATA_START: revenue for app years = income − expenses. */
+  liveTransactions: Array<{ date: string; type: 'income' | 'expense'; amount: number | string }>;
 }
+
+const EGG_COLUMN_LIST = 'date, eggs_chocolate, eggs_brown, eggs_beige, eggs_white, eggs_olive, eggs_blue, eggs_nato, eggs_perlhuhn';
 
 interface YearlyReportRow {
   year: number;
@@ -41,6 +46,7 @@ export default function Reports() {
           legacyData: demoStore.getLegacyYears(),
           liveLogs: demoStore.getDailyLogsSince(since),
           liveSales: demoStore.getSalesSince(since),
+          liveTransactions: demoStore.getTransactions().filter((t) => t.date >= since),
         };
       }
 
@@ -50,48 +56,37 @@ export default function Reports() {
 
       if (legacyError) throw legacyError;
 
-      const { data: liveLogs, error: logsError } = await supabase
-        .from('daily_log')
-        .select(`
-          date,
-          eggs_chocolate,
-          eggs_brown,
-          eggs_beige,
-          eggs_white,
-          eggs_olive,
-          eggs_blue,
-          eggs_nato,
-          eggs_perlhuhn
-        `)
-        .gte('date', LIVE_DATA_START);
+      // Paged: a year of daily logs alone approaches Supabase's 1000-row limit per request.
+      const [liveLogs, liveSales, liveTransactions] = await Promise.all([
+        fetchAllPages<ReportSourceData['liveLogs'][number]>((from, to) =>
+          supabase.from('daily_log').select(EGG_COLUMN_LIST).gte('date', LIVE_DATA_START).order('id').range(from, to)
+        ),
+        fetchAllPages<ReportSourceData['liveSales'][number]>((from, to) =>
+          supabase.from('sales').select('date, amount_boxes').gte('date', LIVE_DATA_START).order('id').range(from, to)
+        ),
+        fetchAllPages<ReportSourceData['liveTransactions'][number]>((from, to) =>
+          supabase.from('transactions').select('date, type, amount').gte('date', LIVE_DATA_START).order('id').range(from, to)
+        ),
+      ]);
 
-      if (logsError) throw logsError;
-
-      const { data: liveSales, error: salesError } = await supabase
-        .from('sales')
-        .select('date, amount_boxes, price')
-        .gte('date', LIVE_DATA_START);
-
-      if (salesError) throw salesError;
-
-      return { legacyData: legacyData || [], liveLogs: liveLogs || [], liveSales: liveSales || [] };
+      return { legacyData: legacyData || [], liveLogs, liveSales, liveTransactions };
     }
 
     async function buildYearlyReport() {
       try {
         setLoading(true);
 
-        const { legacyData, liveLogs, liveSales } = await loadSourceData();
+        const { legacyData, liveLogs, liveSales, liveTransactions } = await loadSourceData();
 
         const liveYearGroups: Record<number, { collected: number; sold: number; revenue: number }> = {};
+        // Year straight from the YYYY-MM-DD text (no time-zone conversion).
+        const groupFor = (date: string) => {
+          const year = Number(date.slice(0, 4));
+          return (liveYearGroups[year] ??= { collected: 0, sold: 0, revenue: 0 });
+        };
 
-        liveLogs?.forEach((log) => {
+        liveLogs.forEach((log) => {
           if (!log.date) return;
-          const year = new Date(log.date).getFullYear();
-
-          if (!liveYearGroups[year]) {
-            liveYearGroups[year] = { collected: 0, sold: 0, revenue: 0 };
-          }
 
           const dailyCollection =
             (log.eggs_chocolate || 0) +
@@ -103,21 +98,20 @@ export default function Reports() {
             (log.eggs_nato || 0) +
             (log.eggs_perlhuhn || 0);
 
-          liveYearGroups[year].collected += dailyCollection;
+          groupFor(log.date).collected += dailyCollection;
         });
 
-        liveSales?.forEach((sale) => {
+        liveSales.forEach((sale) => {
           if (!sale.date) return;
-          const year = new Date(sale.date).getFullYear();
+          groupFor(sale.date).sold += Math.round((Number(sale.amount_boxes) || 0) * 10);
+        });
 
-          if (!liveYearGroups[year]) {
-            liveYearGroups[year] = { collected: 0, sold: 0, revenue: 0 };
-          }
-
-          const eggsSoldInBoxes = Math.round((Number(sale.amount_boxes) || 0) * 10);
-
-          liveYearGroups[year].sold += eggsSoldInBoxes;
-          liveYearGroups[year].revenue += (Number(sale.price) || 0);
+        // Revenue for app years = everything earned minus everything spent (all ledger categories),
+        // not just egg sales. Legacy years keep their stored revenue.
+        liveTransactions.forEach((tx) => {
+          if (!tx.date) return;
+          const amount = Number(tx.amount) || 0;
+          groupFor(tx.date).revenue += tx.type === 'income' ? amount : -amount;
         });
 
         const formattedLegacy: YearlyReportRow[] = (legacyData || []).map((row) => ({
@@ -165,7 +159,7 @@ export default function Reports() {
             <EmptyState>No production records found.</EmptyState>
           ) : (
             <>
-              <div className="grid grid-cols-[minmax(0,1fr)_64px_64px_88px] gap-2 border-b border-line px-3.5 py-2.5 font-mono text-[10px] tracking-[.08em] text-muted uppercase">
+              <div className="grid grid-cols-[minmax(0,1fr)_64px_64px_88px] gap-2 px-3.5 py-2.5 font-mono text-[10px] tracking-[.08em] text-muted uppercase">
                 <span>Year</span>
                 <span className="text-right">Eggs</span>
                 <span className="text-right">Sold</span>
@@ -190,6 +184,9 @@ export default function Reports() {
             </>
           )}
         </Card>
+        <p className="m-0 px-0.5 text-xs text-muted">
+          Revenue for app years is all income minus all expenses from the Ledger. Legacy years show their recorded egg revenue.
+        </p>
       </Section>
     </PageContainer>
   );
