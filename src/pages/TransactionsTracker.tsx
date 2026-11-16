@@ -4,9 +4,11 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
-import SectionHeader from '../components/SectionHeader';
 import type { TransactionCategory, TransactionEntry } from '../types/types';
 import PageContainer from '../components/PageContainer';
+import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
+import { inputClass, rowDivider } from '../components/uiStyles';
+import { formatDayMonth, formatEUR, formatSignedEUR } from '../utils/format';
 
 export default function TransactionsTracker() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
@@ -249,175 +251,150 @@ export default function TransactionsTracker() {
 
   const profit = summaryData.income - summaryData.expense;
 
+  const totalFlow = summaryData.income + summaryData.expense;
+  const incomeShare = totalFlow ? (summaryData.income / totalFlow) * 100 : 50;
+  const timeframeLabel = { month: 'this month', ytd: 'this year', all: 'all time' }[summaryTimeframe];
+  const categoryCode = (name: string) => name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '··';
+
   return (
     <PageContainer>
-      
-      {/* SUMMARY SECTION */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex flex-col justify-between items-start mb-4">
-          <SectionHeader emoji="📊" title="Financial Summary" />
-          <div className="flex bg-stone-100 p-1 rounded-xl w-full">
-            {(['month', 'ytd', 'all'] as const).map(frame => (
-              <button
-                key={frame}
-                onClick={() => setSummaryTimeframe(frame)}
-                className={`flex-1 px-2 py-1.5 text-xs font-bold capitalize rounded-lg transition-colors ${
-                  summaryTimeframe === frame ? 'bg-white shadow-xs text-stone-900' : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {frame}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-col gap-2.5">
+        <Segmented
+          compact
+          options={[
+            { value: 'month', label: 'Month' },
+            { value: 'ytd', label: 'Year to date' },
+            { value: 'all', label: 'All time' },
+          ]}
+          value={summaryTimeframe}
+          onChange={setSummaryTimeframe}
+        />
 
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-emerald-50/50 p-3 rounded-xl border border-green-500 flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Income</p>
-            <p className="text-sm font-bold text-emerald-700">€{summaryData.income.toFixed(2)}</p>
+        <section className="flex flex-col gap-[18px] rounded-[14px] bg-ink p-5 text-app">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-on-dark-muted">Net result · {timeframeLabel}</span>
+            <span className="font-mono text-[38px] font-medium tracking-[-.03em] tabular-nums">{formatSignedEUR(profit)}</span>
           </div>
-          <div className="bg-rose-50/50 p-3 rounded-xl border border-red-500 flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider mb-1">Expenses</p>
-            <p className="text-sm font-bold text-rose-700">€{summaryData.expense.toFixed(2)}</p>
+          <div className="flex h-1.5 overflow-hidden rounded-[3px] bg-expense-on-dark">
+            <div className="bg-income-on-dark" style={{ width: `${incomeShare}%` }} />
           </div>
-          <div className={`${profit >= 0 ? 'bg-stone-800' : 'bg-red-900'} p-3 rounded-xl shadow-xs flex flex-col justify-center`}>
-            <p className="text-[10px] font-bold text-white/90 uppercase tracking-wider mb-1">P/L (Net)</p>
-            <p className={`text-sm font-bold ${profit >= 0 ? 'text-white' : 'text-red-200'}`}>
-              {profit >= 0 ? '+' : ''}€{profit.toFixed(2)}
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="flex items-center gap-1.5 text-xs text-on-dark-muted">
+                <span className="h-2 w-2 rounded-xs bg-income-on-dark" />
+                Income
+              </span>
+              <span className="font-mono text-[17px] tabular-nums">{formatEUR(summaryData.income)}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="flex items-center gap-1.5 text-xs text-on-dark-muted">
+                <span className="h-2 w-2 rounded-xs bg-expense-on-dark" />
+                Expenses
+              </span>
+              <span className="font-mono text-[17px] tabular-nums">{formatEUR(summaryData.expense)}</span>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* ADD TRANSACTION FORM */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <h3 className="text-lg font-bold text-stone-900 mb-4">💸 Log Transaction</h3>
-        
-        <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-xl mb-5">
-          <button
-            onClick={() => setTransactionType('expense')}
-            className={`py-2 text-sm font-bold rounded-lg transition-colors ${transactionType === 'expense' ? 'bg-white text-rose-600 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
-          >
-            Expense
-          </button>
-          <button
-            onClick={() => setTransactionType('income')}
-            className={`py-2 text-sm font-bold rounded-lg transition-colors ${transactionType === 'income' ? 'bg-white text-emerald-600 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
-          >
-            Income
-          </button>
-        </div>
-
-        <DateSelector value={transactionDate} onChange={setTransactionDate} label="Transaction Date" />
-
-        <div className="grid grid-cols-1 gap-4 mt-4 mb-4">
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
-            >
-              <option value="" disabled>Select {transactionType}</option>
-              {categories.filter(c => c.type === transactionType).map(c => (
-                <option key={c.id} value={c.name}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Amount (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
-            />
-          </div>
-        </div>
-
-        <div className="mb-5">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Description (Optional)</label>
-          <input
-            type="text"
-            placeholder="e.g. Bought 2 bags of laying mash..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
+      <Section title="Log transaction">
+        <div className="flex flex-col gap-[18px] rounded-[14px] border border-line bg-surface p-4">
+          <Segmented
+            options={[
+              { value: 'expense', label: 'Expense' },
+              { value: 'income', label: 'Income' },
+            ]}
+            value={transactionType}
+            onChange={setTransactionType}
           />
+
+          <DateSelector value={transactionDate} onChange={setTransactionDate} label="Date" />
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field label="Category">
+              <Select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
+                <option value="" disabled>Select</option>
+                {categories.filter((c) => c.type === transactionType).map((c) => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Amount">
+              <label className="flex h-11 items-center gap-1.5 rounded-lg border border-edge bg-app px-3 focus-within:border-ink">
+                <span className="font-mono text-muted">€</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  aria-label="Amount"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[15px] text-ink outline-none"
+                />
+              </label>
+            </Field>
+          </div>
+
+          <Field label="Description (optional)">
+            <input
+              type="text"
+              placeholder="e.g. Layer pellets 25kg"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <PrimaryButton onClick={handleSaveTransaction} disabled={isSubmitting}>
+            {isSubmitting ? 'Saving…' : `Save ${transactionType === 'income' ? 'income' : 'expense'}`}
+          </PrimaryButton>
         </div>
+      </Section>
 
-        <button
-          onClick={handleSaveTransaction}
-          disabled={isSubmitting}
-          className={`w-full font-bold py-3 px-4 rounded-xl transition-colors shadow-xs text-white disabled:opacity-50 ${
-            transactionType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-stone-800 hover:bg-stone-900'
-          }`}
-        >
-          {isSubmitting ? 'Saving...' : `Save ${transactionType === 'income' ? 'Income' : 'Expense'}`}
-        </button>
-      </div>
+      <Section title="History">
+        <Select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} aria-label="Filter by category">
+          <option value="all">All categories</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.name}>{c.name}</option>
+          ))}
+        </Select>
 
-      {/* TRANSACTION LEDGER */}
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <div className="flex flex-col justify-between items-start mb-5 gap-3 border-b border-stone-100 pb-4">
-          <h3 className="text-lg font-bold text-stone-900">📋 Ledger History</h3>
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200 text-xs font-semibold rounded-lg px-2 py-2 text-stone-600 focus:outline-none"
-          >
-            <option value="all">All Categories</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </div>
-
-        {history.length === 0 && !isLoadingHistory ? (
-          <LoadingSpinner message="No transactions match this filter." size="sm" />
-        ) : (
-          <div className="space-y-2">
-            {history.map((tx) => (
-              <div key={tx.id} className="flex justify-between items-center p-2.5 bg-stone-50 rounded-xl border border-stone-150">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-stone-800 text-sm">
-                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </span>
-                    <span className="text-[9px] uppercase font-bold text-stone-500 bg-stone-200 px-1.5 py-0.5 rounded-md tracking-wider">
-                      {tx.category}
-                    </span>
-                  </div>
-                  {tx.description && (
-                    <p className="text-[11px] text-stone-500 italic mt-0.5 leading-tight">
-                      {tx.description}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 shrink-0 ml-2">
-                  <span className={`font-bold text-sm ${tx.type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {tx.type === 'income' ? '' : '-'}€{Number(tx.amount).toFixed(2)}
+        <Card padded={false}>
+          {history.length === 0 && !isLoadingHistory ? (
+            <EmptyState>No entries match.</EmptyState>
+          ) : (
+            history.map((tx) => (
+              <div key={tx.id} className={`flex items-center gap-3 px-3.5 py-3 ${rowDivider}`}>
+                <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-subtle font-mono text-[11px] text-ink-soft">
+                  {categoryCode(tx.category)}
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm font-medium">{tx.description || tx.category}</span>
+                  <span className="text-xs text-muted">
+                    {tx.category} · {formatDayMonth(tx.date)}
                   </span>
-                  <button
-                    onClick={() => handleDelete(tx.id)}
-                    className="text-[10px] px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded transition-colors cursor-pointer"
-                  >
+                </div>
+                <div className="flex flex-none flex-col items-end">
+                  <span className={`font-mono text-sm tabular-nums ${tx.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                    {formatSignedEUR(tx.type === 'income' ? Number(tx.amount) : -Number(tx.amount))}
+                  </span>
+                  <TextButton tone="danger" className="py-0.5 text-xs" onClick={() => handleDelete(tx.id)}>
                     Delete
-                  </button>
+                  </TextButton>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
 
-        {hasMore && (
-          <div ref={observerTarget} className="mt-4 py-2 text-center">
-            <LoadingSpinner message="Loading ledger..." size="sm" />
-          </div>
-        )}
-      </div>
-
+          {hasMore && (
+            <div ref={observerTarget} className={rowDivider}>
+              <LoadingSpinner message="Loading ledger…" size="sm" />
+            </div>
+          )}
+        </Card>
+      </Section>
     </PageContainer>
   );
 }

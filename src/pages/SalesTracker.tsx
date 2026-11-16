@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
 import type { SaleEntry } from '../types/types';
-import SectionHeader from '../components/SectionHeader';
 import DateSelector from '../components/DateSelector';
 import { demoStore } from '../demo/demoStore';
 import PageContainer from '../components/PageContainer';
+import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
+import { inputClass, rowDivider } from '../components/uiStyles';
+import { formatDayMonth, formatEUR } from '../utils/format';
 
 interface SaleRow {
   id: number | string;
@@ -315,155 +317,153 @@ export default function SalesTracker() {
     }
   };
 
+  const eggsCount = parseInt(eggsSoldInput) || 0;
+  const priceValue = paymentStatus === 'Gift' ? 0 : parseFloat(priceOverride) || 0;
+  const newCustomerName = newCustomerInput.trim();
+  const canAddCustomer = newCustomerName !== '' && !customers.includes(newCustomerName);
+  const priceHint = paymentStatus === 'Gift' ? 'gift' : isManualPrice ? 'custom' : `${formatEUR(0.5)} / egg`;
+
   return (
     <PageContainer>
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <SectionHeader emoji="💰" title="Log a Sale" />
-
-        <div className="mb-4">
-          <div className="flex justify-between items-center mb-1.5">
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider">Customer</label>
-            <button
-              type="button"
-              onClick={() => setShowAddCustomer(!showAddCustomer)}
-              className="text-xs text-amber-700 font-medium hover:underline cursor-pointer"
-            >
-              {showAddCustomer ? 'Cancel' : '+ Add New Customer'}
-            </button>
-          </div>
-
+      <div className="flex flex-col gap-[18px] rounded-[14px] border border-line bg-surface p-4">
+        <Field
+          label="Customer"
+          right={
+            <TextButton tone="ink" onClick={() => { setShowAddCustomer(!showAddCustomer); setNewCustomerInput(''); }}>
+              {showAddCustomer ? 'Cancel' : '+ Add customer'}
+            </TextButton>
+          }
+        >
           {!showAddCustomer ? (
-            <select
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-stone-800 focus:outline-none focus:border-amber-500"
-            >
-              <option value="" disabled>-- Select Buyer --</option>
+            <Select value={selectedCustomer} onChange={(e) => setSelectedCustomer(e.target.value)}>
+              <option value="" disabled>Select customer</option>
               {customers.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
-            </select>
+            </Select>
           ) : (
-            <form onSubmit={handleAddCustomer} className="flex space-x-2 animate-fade-in">
+            <form onSubmit={handleAddCustomer} className="flex gap-2">
               <input
                 type="text"
-                placeholder="Enter client name"
+                placeholder="Customer name"
                 value={newCustomerInput}
                 onChange={(e) => setNewCustomerInput(e.target.value)}
-                className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 text-sm"
+                className={`${inputClass} min-w-0 flex-1`}
+                autoFocus
               />
               <button
                 type="submit"
-                className="bg-stone-800 text-white text-xs px-4 rounded-xl hover:bg-stone-900 font-semibold cursor-pointer"
+                disabled={!canAddCustomer}
+                className="h-11 cursor-pointer rounded-lg bg-ink px-[18px] text-sm font-medium text-app active:bg-ink-pressed disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Save
+                Add
               </button>
             </form>
           )}
-        </div>
+        </Field>
 
-        <div className="grid grid-cols-2 gap-4 mb-2">
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Eggs Sold</label>
+        <div className="flex flex-col gap-2">
+          <label className="flex items-baseline gap-2 border-b border-ink pb-2">
             <input
-              type="number"
-              placeholder="e.g. 12"
-              min="0"
+              type="text"
+              inputMode="numeric"
+              placeholder="0"
+              aria-label="Eggs sold"
               value={eggsSoldInput}
-              onChange={(e) => setEggsSoldInput(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500"
+              onChange={(e) => setEggsSoldInput(e.target.value.replace(/\D/g, ''))}
+              className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[40px] font-medium tracking-[-.03em] text-ink outline-none"
             />
+            <span className="text-[15px] text-muted">eggs</span>
+          </label>
+          <div className="flex gap-1.5">
+            {[6, 10, 12, 20, 30].map((n) => {
+              const active = eggsSoldInput === String(n);
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setEggsSoldInput(String(n))}
+                  className={`h-9 flex-1 cursor-pointer rounded-lg border font-mono text-[13px] ${
+                    active ? 'border-ink bg-ink text-app' : 'border-edge bg-surface text-ink hover:bg-subtle'
+                  }`}
+                >
+                  {n}
+                </button>
+              );
+            })}
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Total Price (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              disabled={paymentStatus === 'Gift'}
-              value={priceOverride}
-              onChange={(e) => {
-                setPriceOverride(e.target.value);
-                setIsManualPrice(true);
-              }}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500 disabled:opacity-50 font-medium"
-            />
-          </div>
+          <span className="text-xs text-muted">
+            {eggsCount > 0
+              ? `Takes ${Math.floor(eggsCount / 10)} box${Math.floor(eggsCount / 10) === 1 ? '' : 'es'} + ${eggsCount % 10} loose from the pantry`
+              : 'Pick a quantity or type it'}
+          </span>
         </div>
 
-        {parseInt(eggsSoldInput) > 0 && (
-          <div className="mb-4 text-xs text-stone-400 bg-stone-50 p-2.5 rounded-xl border border-stone-150">
-            📦 Stock reduction: <strong>{Math.floor(parseInt(eggsSoldInput) / 10)} full boxes</strong> and <strong>{parseInt(eggsSoldInput) % 10} loose eggs</strong>.
-            {paymentStatus === 'Paid' && !isManualPrice && ` (Suggested at €0.50/egg)`}
-          </div>
-        )}
-
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Payment Type</label>
-          <div className="grid grid-cols-2 p-1 bg-stone-100 rounded-xl">
-            <button
-              type="button"
-              onClick={() => setPaymentStatus('Paid')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${paymentStatus === 'Paid' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
+        <div className="grid grid-cols-2 items-end gap-2.5">
+          <Field label="Payment">
+            <Segmented
+              options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift (free)' }]}
+              value={paymentStatus}
+              onChange={setPaymentStatus}
+            />
+          </Field>
+          <Field label={`Price · ${priceHint}`}>
+            <label
+              className={`flex h-11 items-center gap-1.5 rounded-lg border border-edge bg-app px-3 focus-within:border-ink ${
+                paymentStatus === 'Gift' ? 'opacity-50' : ''
+              }`}
             >
-              Paid
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentStatus('Gift')}
-              className={`py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${paymentStatus === 'Gift' ? 'bg-white text-stone-900 shadow-xs' : 'text-stone-500 hover:text-stone-900'}`}
-            >
-              Gift (Free)
-            </button>
-          </div>
+              <span className="font-mono text-muted">€</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                aria-label="Price"
+                disabled={paymentStatus === 'Gift'}
+                value={priceOverride}
+                onChange={(e) => {
+                  setPriceOverride(e.target.value);
+                  setIsManualPrice(true);
+                }}
+                className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[15px] text-ink outline-none"
+              />
+            </label>
+          </Field>
         </div>
 
-        <DateSelector 
-          value={saleDate}
-          onChange={setSaleDate}
-          label="Date of Sale"
-        />
+        <DateSelector value={saleDate} onChange={setSaleDate} label="Date of sale" />
 
-        <button
-          onClick={handleSaveSale}
-          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-xs cursor-pointer mt-4"
-        >
-          Submit Transaction
-        </button>
+        <PrimaryButton onClick={handleSaveSale} disabled={eggsCount <= 0}>
+          {paymentStatus === 'Gift' ? 'Record gift' : `Record sale · ${formatEUR(priceValue)}`}
+        </PrimaryButton>
       </div>
 
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <h3 className="text-sm font-bold text-stone-900 mb-3">📋 Recent History Ledger</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-stone-200 text-stone-400 font-semibold uppercase tracking-wider">
-                <th className="pb-2">Client</th>
-                <th className="pb-2 text-center">Eggs Sold</th>
-                <th className="pb-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100 text-stone-700">
-              {salesLog.map((sale) => (
-                <tr key={sale.id} className="hover:bg-stone-50/50">
-                  <td className="py-2.5">
-                    <p className="font-medium text-stone-900">{sale.customerName}</p>
-                    <p className="text-[10px] text-stone-400">{sale.date}</p>
-                  </td>
-                  <td className="py-2.5 text-center font-semibold">{sale.amountBoxes} eggs</td>
-                  <td className="py-2.5 text-right font-bold">
-                    {sale.status === 'Gift' ? (
-                      <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded text-[10px]">GIFT</span>
-                    ) : (
-                      `€${sale.price.toFixed(2)}`
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Section title="Recent sales">
+        <Card padded={false}>
+          {salesLog.length === 0 ? (
+            <EmptyState>No sales yet.</EmptyState>
+          ) : (
+            salesLog.map((sale) => (
+              <div key={sale.id} className={`flex items-center gap-3 px-3.5 py-3 ${rowDivider}`}>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm font-medium">{sale.customerName}</span>
+                  <span className="text-xs text-muted">
+                    {formatDayMonth(sale.date)} · {sale.amountBoxes} eggs
+                  </span>
+                </div>
+                {sale.status === 'Gift' ? (
+                  <span className="rounded-md bg-gift-bg px-2 py-0.5 font-mono text-sm text-gift">Gift</span>
+                ) : (
+                  <span className="rounded-md bg-income-bg px-2 py-0.5 font-mono text-sm text-income tabular-nums">
+                    +{formatEUR(sale.price)}
+                  </span>
+                )}
+              </div>
+            ))
+          )}
+        </Card>
+      </Section>
     </PageContainer>
   );
 }

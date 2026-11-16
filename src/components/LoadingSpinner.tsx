@@ -8,13 +8,13 @@ export default function LoadingSpinner({
   size = 'md'
 }: LoadingSpinnerProps) {
   const sizeClass = {
-    sm: 'p-3 text-xs',
+    sm: 'p-3.5 text-[13px]',
     md: 'p-6 text-sm',
-    lg: 'p-8 text-base'
+    lg: 'p-8 text-[15px]'
   }[size];
 
   return (
-    <div className={`text-center text-stone-500 animate-pulse ${sizeClass}`}>
+    <div className={`text-center text-muted ${sizeClass}`}>
       {message}
     </div>
   );

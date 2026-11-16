@@ -4,8 +4,9 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import FormInput from '../components/FormInput';
-import SectionHeader from '../components/SectionHeader';
 import PageContainer from '../components/PageContainer';
+import Sheet from '../components/Sheet';
+import { PrimaryButton, Section } from '../components/ui';
 
 export default function PantryManager() {
   const { isDemo } = useDemo();
@@ -115,132 +116,61 @@ export default function PantryManager() {
     return <LoadingSpinner message="Loading pantry inventory..." size="md" />;
   }
 
+  const numericChange = (setter: (n: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val === '' || /^\d+$/.test(val)) setter(val === '' ? 0 : Number(val));
+  };
+
+  const cells = [
+    { label: 'For sale', n: boxesForSale, unit: 'boxes' },
+    { label: 'Personal', n: boxesPersonal, unit: 'boxes' },
+    { label: 'Loose', n: looseEggs, unit: 'eggs' },
+  ];
+  const onHand = (boxesForSale + boxesPersonal) * 10 + looseEggs;
+
   return (
     <PageContainer>
-      <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-        <SectionHeader
-          emoji="📦"
-          title="Pantry Manager"
-          description="Real-time inventory of what's currently on the farm shelves."
-          action={{
-            label: isOpen ? 'Close Adjustment' : 'Manual Adjust',
-            onClick: () => setIsOpen(!isOpen)
-          }}
-        />
-
-        {isOpen && (
-          <form onSubmit={handleSaveAdjustment} className="mb-6 p-4 bg-stone-50 rounded-xl border border-stone-200 space-y-4 animate-fade-in">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-sm font-bold text-stone-800">Manual Inventory Correction</h3>
-                <p className="text-xs text-stone-500">Update counts directly to account for breakage, personal consumption, or audits.</p>
-              </div>
-              {isDemo && (
-                <span className="px-2 py-1 bg-amber-100 text-amber-800 text-[10px] text-center font-bold uppercase rounded-md">
-                  Demo Mode
-                </span>
-              )}
+      <Section title="On the shelves" action={{ label: 'Adjust', onClick: () => setIsOpen(true) }}>
+        <div className="grid grid-cols-3 rounded-xl border border-line bg-surface">
+          {cells.map((c, i) => (
+            <div key={c.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>
+              <span className="text-[11px] text-muted">{c.label}</span>
+              <span className="flex items-baseline gap-1">
+                <span className="font-mono text-2xl font-medium tracking-[-.02em] tabular-nums">{c.n}</span>
+                <span className="text-[11px] text-muted">{c.unit}</span>
+              </span>
             </div>
-
-            <div className="grid grid-cols-1 gap-3">
-              <FormInput
-                label="For Sale Boxes"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={editForSale}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d+$/.test(val)) {
-                    setEditForSale(val === '' ? 0 : Number(val));
-                  }
-                }}
-              />
-              <FormInput
-                label="Personal Boxes"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={editPersonal}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d+$/.test(val)) {
-                    setEditPersonal(val === '' ? 0 : Number(val));
-                  }
-                }}
-              />
-              <FormInput
-                label="Loose Eggs"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={editLoose}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === '' || /^\d+$/.test(val)) {
-                    setEditLoose(val === '' ? 0 : Number(val));
-                  }
-                }}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 text-xs font-medium rounded-lg transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs cursor-pointer disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : (isDemo ? 'Test Save' : 'Save New State')}
-              </button>
-            </div>
-          </form>
-        )}
-
-        <div className="grid grid-cols-1 gap-3">
-          <div className="flex items-center justify-between p-4 bg-emerald-50/60 rounded-xl border border-emerald-100">
-            <div>
-              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Available for Sale</p>
-              <p className="text-2xl font-bold text-emerald-900 mt-0.5">{boxesForSale} <span className="text-sm font-normal text-emerald-700">Boxes</span></p>
-            </div>
-            <span className="text-2xl">💰</span>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-stone-50 rounded-xl border border-stone-200">
-            <div>
-              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Personal Kitchen Stock</p>
-              <p className="text-2xl font-bold text-stone-800 mt-0.5">{boxesPersonal} <span className="text-sm font-normal text-stone-500">Boxes</span></p>
-            </div>
-            <span className="text-2xl">🍳</span>
-          </div>
-
-          <div className="flex items-center justify-between p-4 bg-amber-50/60 rounded-xl border border-amber-100">
-            <div>
-              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Loose Eggs Pool</p>
-              <p className="text-2xl font-bold text-amber-900 mt-0.5">{looseEggs} <span className="text-sm font-normal text-amber-700">Eggs</span></p>
-            </div>
-            <span className="text-2xl">🥚</span>
-          </div>
+          ))}
         </div>
+        <div className="flex justify-between gap-3 px-0.5 text-xs text-muted">
+          <span>{onHand} eggs on hand</span>
+          {potentialNewBoxes > 0 && (
+            <span>
+              Enough loose to pack {potentialNewBoxes} box{potentialNewBoxes > 1 ? 'es' : ''}
+              {remainingLoose > 0 ? `, ${remainingLoose} left over` : ''}
+            </span>
+          )}
+        </div>
+      </Section>
 
-        {potentialNewBoxes > 0 && (
-          <div className="mt-5 p-4 bg-blue-50 text-blue-800 rounded-xl border border-blue-100 text-sm flex items-start space-x-3">
-            <span className="text-base mt-0.5">💡</span>
-            <div>
-              <p className="font-semibold">Packing Assistant</p>
-              <p className="text-blue-700 mt-0.5">
-                You have enough loose eggs to pack <strong>{potentialNewBoxes} additional box{potentialNewBoxes > 1 ? 'es' : ''}</strong>, leaving {remainingLoose} loose egg{remainingLoose !== 1 ? 's' : ''}.
-              </p>
-            </div>
+      <Sheet open={isOpen} title="Adjust pantry" onClose={() => setIsOpen(false)}>
+        <form onSubmit={handleSaveAdjustment} className="flex flex-col gap-4">
+          <p className="m-0 text-[13px] text-pretty text-muted">
+            Correct the counts for breakage, kitchen use or a stock check. Logs and sales update the pantry automatically.
+            {isDemo && ' In demo mode this only changes the sandbox.'}
+          </p>
+
+          <div className="flex flex-col gap-3">
+            <FormInput label="Boxes for sale" type="text" inputMode="numeric" pattern="[0-9]*" value={editForSale} onChange={numericChange(setEditForSale)} className="font-mono" />
+            <FormInput label="Boxes for personal use" type="text" inputMode="numeric" pattern="[0-9]*" value={editPersonal} onChange={numericChange(setEditPersonal)} className="font-mono" />
+            <FormInput label="Loose eggs" type="text" inputMode="numeric" pattern="[0-9]*" value={editLoose} onChange={numericChange(setEditLoose)} className="font-mono" />
           </div>
-        )}
-      </div>
+
+          <PrimaryButton type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save counts'}
+          </PrimaryButton>
+        </form>
+      </Sheet>
     </PageContainer>
   );
 }

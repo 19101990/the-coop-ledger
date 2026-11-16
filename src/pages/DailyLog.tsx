@@ -5,9 +5,23 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
-import SectionHeader from '../components/SectionHeader';
 import CounterControl from '../components/CounterControl';
 import PageContainer from '../components/PageContainer';
+import { Card, EmptyState, PrimaryButton, Section, TextButton } from '../components/ui';
+import { rowDivider } from '../components/uiStyles';
+import { formatWeekdayDate } from '../utils/format';
+
+// Swatch colour per egg variety (design/README.md).
+const EGG_SWATCHES: Record<EggVariety, string> = {
+  chocolate: '#6b4430',
+  brown: '#a8714a',
+  beige: '#dcc29c',
+  white: '#fbf8f2',
+  blue: '#bcd2cf',
+  olive: '#9a9a62',
+  nato: '#c9a77f',
+  perlhuhn: '#e6d3bd',
+};
 
 export default function DailyLog() {
   const getTodayString = (): string => {
@@ -346,166 +360,127 @@ export default function DailyLog() {
 
   return (
     <PageContainer>
-      <div className="flex flex-col gap-6">
-        <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <div className="flex justify-between items-center">
-            <SectionHeader emoji="🐔" title={editingLogId ? "Edit Daily Log" : "Daily Coop Log"} />
-            {editingLogId && (
-              <button
-                onClick={handleCancelEdit}
-                className="text-xs px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                Cancel Edit
-              </button>
-            )}
+      <Section
+        title={editingLogId ? 'Edit entry' : 'New entry'}
+        action={editingLogId ? { label: 'Cancel edit', onClick: handleCancelEdit } : undefined}
+      >
+        <div className="flex flex-col gap-4">
+          <DateSelector value={saleDate} onChange={setSaleDate} label="Date collected" />
+
+          <div className="flex items-baseline justify-between border-b border-ink pb-2">
+            <span className="text-[13px] text-muted">Total collected</span>
+            <span className="font-mono text-[40px] font-medium tracking-[-.03em] tabular-nums">
+              {calculateDailyTotal(eggCollected)}
+            </span>
           </div>
 
-          <DateSelector
-            value={saleDate}
-            onChange={setSaleDate}
-            label="Date Collected"
+          <Card padded={false}>
+            {Object.entries(eggCollected).map(([variety, count]) => (
+              <CounterControl
+                key={variety}
+                label={handleEggVarietyLabel(variety)}
+                swatch={EGG_SWATCHES[variety as EggVariety]}
+                value={count}
+                onDecrement={() => adjustEggCount(variety as EggVariety, -1)}
+                onIncrement={() => adjustEggCount(variety as EggVariety, 1)}
+              />
+            ))}
+          </Card>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-muted">Packed into boxes of 10</span>
+            <Card padded={false}>
+              {[
+                { label: 'Boxes for sale', value: boxesForSale, set: setBoxesForSale },
+                { label: 'Boxes for personal use', value: boxesForPersonal, set: setBoxesForPersonal },
+              ].map(({ label, value, set }) => {
+                const n = parseInt(value) || 0;
+                return (
+                  <CounterControl
+                    key={label}
+                    label={label}
+                    value={n}
+                    onDecrement={() => set(String(Math.max(0, n - 1)))}
+                    onIncrement={() => set(String(n + 1))}
+                  />
+                );
+              })}
+            </Card>
+          </div>
+
+          <input
+            type="text"
+            aria-label="Notes"
+            placeholder="Notes — weather, hens, coop work"
+            value={logNotes}
+            onChange={(e) => setLogNotes(e.target.value)}
+            className="h-11 w-full rounded-lg border border-edge bg-surface px-3 text-[15px] text-ink outline-none focus:border-ink"
           />
 
-          <div className="mb-6">
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-3">
-              Egg Collection Counters
-            </label>
-
-            <div className="grid grid-cols-1 gap-3">
-              <div className="grid grid-cols-1 gap-3">
-                {Object.entries(eggCollected).map(([variety, count]) => (
-                    <CounterControl
-                    key={variety}
-                    label={handleEggVarietyLabel(variety)}
-                    description="Collected"
-                    value={count}
-                    onDecrement={() => adjustEggCount(variety as EggVariety, -1)}
-                    onIncrement={() => adjustEggCount(variety as EggVariety, 1)}
-                    />
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-right text-stone-500 mt-2">Total: {calculateDailyTotal(eggCollected)} eggs</p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 mb-6">
-            <div>
-              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-                Boxes for Sale
-              </label>
-              <input
-                type="number"
-                placeholder="0"
-                min="0"
-                value={boxesForSale}
-                onChange={(e) => setBoxesForSale(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-                Boxes for Personal Use
-              </label>
-              <input
-                type="number"
-                placeholder="0"
-                min="0"
-                value={boxesForPersonal}
-                onChange={(e) => setBoxesForPersonal(e.target.value)}
-                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500"
-              />
-            </div>
-          </div>
-
-          <div className="mb-5">
-            <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">
-              Log Notes
-            </label>
-            <textarea
-              rows={3}
-              placeholder="Any observations about the hens, weather, or other notes..."
-              value={logNotes}
-              onChange={(e) => setLogNotes(e.target.value)}
-              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-amber-500 text-sm"
-            />
-          </div>
-
-          <button
-            onClick={handleSaveDailyLog}
-            className={`w-full font-bold py-3 px-4 rounded-xl transition-colors shadow-xs text-white cursor-pointer ${editingLogId ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'}`}
-          >
-            {editingLogId ? 'Update Daily Log Entry' : 'Save Daily Log'}
-          </button>
+          <PrimaryButton onClick={handleSaveDailyLog}>
+            {editingLogId ? 'Update daily log' : 'Save daily log'}
+          </PrimaryButton>
         </div>
+      </Section>
 
-        <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
-          <h3 className="text-lg font-bold text-stone-900 mb-4">📋 Historical Logs</h3>
-
+      <Section title="History">
+        <Card padded={false}>
           {logsSummary.length === 0 ? (
-            <LoadingSpinner message="No logs yet. Create your first entry above!" size="sm" />
+            <EmptyState>No logs yet. Create your first entry above.</EmptyState>
           ) : (
-            <div className="space-y-3">
-              {logsSummary.map((log) => (
-                <div key={log.id} className="p-4 bg-stone-50 rounded-xl border border-stone-150">
-                    <div className="flex text-xs font-medium text-stone-600 mb-3 justify-between items-start">
-                        <div className="flex flex-col justify-between items-start pb-2">
-                            <span className="font-bold text-stone-800">
-                                {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                            </span>
-                            <span className="text-amber-900 font-bold text-xs">
-                                Total: {calculateDailyTotal(log)} Eggs
-                            </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <button
-                                onClick={() => handleEditClick(log)}
-                                className="text-xs px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 font-semibold rounded-md transition-colors cursor-pointer"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                onClick={() => handleDeleteLog(log.id)}
-                                className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-semibold rounded-md transition-colors cursor-pointer"
-                            >
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-medium text-stone-600 mb-3">
-                    {log.eggs_chocolate > 0 && <div>Chocolate: <span className="font-bold text-stone-900">{log.eggs_chocolate}</span></div>}
-                    {log.eggs_brown > 0 && <div>Brown: <span className="font-bold text-stone-900">{log.eggs_brown}</span></div>}
-                    {log.eggs_beige > 0 && <div>Beige: <span className="font-bold text-stone-900">{log.eggs_beige}</span></div>}
-                    {log.eggs_white > 0 && <div>White: <span className="font-bold text-stone-900">{log.eggs_white}</span></div>}
-                    {log.eggs_olive > 0 && <div>Olive: <span className="font-bold text-stone-900">{log.eggs_olive}</span></div>}
-                    {log.eggs_blue > 0 && <div>Blue: <span className="font-bold text-stone-900">{log.eggs_blue}</span></div>}
-                    {log.eggs_nato > 0 && <div>Nato: <span className="font-bold text-stone-900">{log.eggs_nato}</span></div>}
-                    {log.eggs_perlhuhn > 0 && <div>Perlhuhn: <span className="font-bold text-stone-900">{log.eggs_perlhuhn}</span></div>}
+            logsSummary.map((log) => {
+              const varieties = (Object.keys(EGG_SWATCHES) as EggVariety[])
+                .map((v) => ({ v, n: log[`eggs_${v}` as keyof DBLogEntry] as number }))
+                .filter(({ n }) => n > 0);
+
+              return (
+                <div key={log.id} className={`flex flex-col gap-2 px-3.5 py-3 ${rowDivider}`}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium">{formatWeekdayDate(log.date)}</span>
+                    <span className="font-mono text-sm tabular-nums">
+                      {calculateDailyTotal(log)} <span className="font-sans text-xs text-muted">eggs</span>
+                    </span>
                   </div>
 
-                  {(log.boxes_for_sale > 0 || log.boxes_personal > 0) && (
-                    <div className="pt-2 border-t border-dashed border-stone-200 flex space-x-4 text-xs text-stone-500">
-                      {log.boxes_for_sale > 0 && <span>For Sale: <strong className="text-stone-700">{log.boxes_for_sale} boxes</strong></span>}
-                      {log.boxes_personal > 0 && <span>Personal: <strong className="text-stone-700">{log.boxes_personal} boxes</strong></span>}
+                  {varieties.length > 0 && (
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted">
+                      {varieties.map(({ v, n }) => (
+                        <span key={v} className="flex items-center gap-1.5">
+                          <span
+                            className="h-[10px] w-2 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-[inset_0_0_0_1px_rgba(28,27,24,.2)]"
+                            style={{ background: EGG_SWATCHES[v] }}
+                          />
+                          {handleEggVarietyLabel(v)} <span className="font-mono text-ink">{n}</span>
+                        </span>
+                      ))}
                     </div>
                   )}
 
-                  {log.notes && (
-                    <p className="text-xs text-stone-500 italic mt-2 bg-stone-100 p-2 rounded-lg">
-                      📝 {log.notes}
-                    </p>
+                  {(log.boxes_for_sale > 0 || log.boxes_personal > 0) && (
+                    <div className="flex gap-3 text-xs text-muted">
+                      {log.boxes_for_sale > 0 && <span>For sale <span className="font-mono text-ink">{log.boxes_for_sale}</span> boxes</span>}
+                      {log.boxes_personal > 0 && <span>Personal <span className="font-mono text-ink">{log.boxes_personal}</span> boxes</span>}
+                    </div>
                   )}
+
+                  {log.notes && <p className="m-0 text-xs text-ink-soft">{log.notes}</p>}
+
+                  <div className="flex justify-end gap-4">
+                    <TextButton onClick={() => handleEditClick(log)}>Edit</TextButton>
+                    <TextButton tone="danger" onClick={() => handleDeleteLog(log.id)}>Delete</TextButton>
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })
           )}
 
           {hasMore && (
-            <div ref={observerTarget} className="mt-4 py-2 text-center">
-              <LoadingSpinner message="Loading more..." size="sm" />
+            <div ref={observerTarget} className={rowDivider}>
+              <LoadingSpinner message="Loading more…" size="sm" />
             </div>
           )}
-        </div>
-      </div>
+        </Card>
+      </Section>
     </PageContainer>
   );
 }
