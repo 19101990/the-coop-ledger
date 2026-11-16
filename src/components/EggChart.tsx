@@ -128,18 +128,21 @@ export default function EggChart({ series }: { series: EggSeries }) {
         </div>
       )}
 
-      {/* Table view for screen readers */}
-      <table className="sr-only">
-        <caption>{perDay ? 'Average eggs per logged day' : 'Eggs collected per day'}</caption>
-        <tbody>
-          {buckets.map((b, i) => (
-            <tr key={b.key}>
-              <th scope="row">{b.title}</th>
-              <td>{valueText(i, true)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Table view for screen readers. sr-only goes on a wrapper div: a <table> ignores the
+          1px width and grows to its content, which pushed the page wider than the screen. */}
+      <div className="sr-only">
+        <table>
+          <caption>{perDay ? 'Average eggs per logged day' : 'Eggs collected per day'}</caption>
+          <tbody>
+            {buckets.map((b, i) => (
+              <tr key={b.key}>
+                <th scope="row">{b.title}</th>
+                <td>{valueText(i, true)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
