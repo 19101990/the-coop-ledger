@@ -3,38 +3,98 @@ import { useState } from 'react';
 import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
 import { demoStore } from '../demo/demoStore';
+import Sheet from './Sheet';
+import { TAB_TITLES, BOTTOM_TABS, MENU_TABS } from './navigationConfig';
 
+// ---------- Header ----------
 
 interface HeaderProps {
-  isMenuOpen: boolean;
-  setIsMenuOpen: (open: boolean) => void;
+  title: string;
+  onOpenMenu: () => void;
 }
 
-export function LiveDatabaseToggle() {
-  // Mode is derived from the Supabase session in DemoContext; signing in/out updates it automatically.
+export function Header({ title, onOpenMenu }: HeaderProps) {
   const { isDemo } = useDemo();
+
+  return (
+    <header className="sticky top-0 z-[5] flex items-end justify-between gap-3 border-b border-line bg-app px-5 pt-[18px] pb-3">
+      <div className="flex flex-col gap-1">
+        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.08em] text-muted">
+          Brandeshof Coop
+          {isDemo && (
+            <span className="rounded bg-gift-bg px-1.5 py-px text-[10px] text-gift">Demo</span>
+          )}
+        </span>
+        <h1 className="m-0 text-2xl font-semibold tracking-[-.02em]">{title}</h1>
+      </div>
+
+      <button
+        onClick={onOpenMenu}
+        aria-label="Open menu"
+        className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-muted hover:bg-subtle hover:text-ink"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <circle cx="3" cy="8" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="13" cy="8" r="1.5" />
+        </svg>
+      </button>
+    </header>
+  );
+}
+
+// ---------- Bottom tab bar ----------
+
+interface BottomNavProps {
+  activeTab: Tab;
+  setActiveTab: (tab: Tab) => void;
+}
+
+function NavTab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={`flex h-[52px] cursor-pointer flex-col items-center justify-center gap-[5px] bg-transparent ${active ? 'text-ink' : 'text-muted'}`}
+    >
+      <span className={`h-[3px] w-[18px] rounded-sm ${active ? 'bg-ink' : 'bg-transparent'}`} />
+      <span className={`text-xs ${active ? 'font-semibold' : 'font-normal'}`}>{label}</span>
+    </button>
+  );
+}
+
+export function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
+  return (
+    <nav className="fixed bottom-0 left-1/2 z-10 grid w-full max-w-[440px] -translate-x-1/2 grid-cols-4 items-center border-t border-line bg-surface px-2 pt-1.5 pb-[calc(6px+env(safe-area-inset-bottom))]">
+      {BOTTOM_TABS.map(id => (
+        <NavTab key={id} label={TAB_TITLES[id]} active={activeTab === id} onClick={() => setActiveTab(id)} />
+      ))}
+    </nav>
+  );
+}
+
+// ---------- "More" menu (header) ----------
+
+interface MoreMenuProps {
+  open: boolean;
+  onClose: () => void;
+  activeTab: Tab;
+  setActiveTab: (tab: Tab) => void;
+}
+
+function AccountSection() {
+  // Mode is derived from the Supabase session in DemoContext; signing in/out updates it automatically.
+  const { isDemo, user } = useDemo();
   const [showLogin, setShowLogin] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleToggleClick = async () => {
-    if (isDemo) {
-      setShowLogin(true);
-    } else {
-      await supabase.auth.signOut();
-      setShowLogin(false);
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setErrorMsg('Invalid credentials.');
@@ -52,140 +112,79 @@ export function LiveDatabaseToggle() {
     window.location.reload();
   };
 
+  const inputClass =
+    'h-11 w-full rounded-lg border border-edge bg-surface px-3 text-[15px] text-ink outline-none focus:border-ink';
+
   return (
-    <div className="mt-6 border-t border-stone-200 pt-6">
-      <div className="flex flex-col space-y-3">
-        
-        <div className="flex items-center justify-between">
-          <span className={`text-xs px-2 py-1 rounded-md font-medium ${isDemo ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
-            {isDemo ? '🛠️ Demo Sandbox' : '🟢 Live Database'}
-          </span>
-          <button 
-            onClick={handleToggleClick} 
-            className="text-xs text-stone-500 hover:text-stone-800 font-semibold underline"
-          >
-            {isDemo ? 'Unlock Live Mode' : 'Lock to Demo'}
-          </button>
+    <div className="flex flex-col gap-2.5">
+      <span className="text-xs text-muted">Data</span>
+      <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="text-sm font-medium">{isDemo ? 'Demo sandbox' : 'Live database'}</span>
+            <span className="truncate text-xs text-muted">
+              {isDemo ? 'Sample data only — nothing is saved to the farm records.' : `Signed in as ${user?.email ?? 'admin'}`}
+            </span>
+          </div>
+          {!showLogin && (
+            <button
+              onClick={() => (isDemo ? setShowLogin(true) : supabase.auth.signOut())}
+              className="shrink-0 cursor-pointer text-[13px] font-medium underline underline-offset-[3px]"
+            >
+              {isDemo ? 'Sign in' : 'Sign out'}
+            </button>
+          )}
         </div>
 
-        {isDemo && !showLogin && (
-          <button
-            onClick={handleResetDemo}
-            className="self-start text-[11px] text-stone-400 hover:text-stone-700 underline"
-          >
-            Reset demo data
-          </button>
-        )}
-
         {showLogin && isDemo && (
-          <form onSubmit={handleLogin} className="bg-stone-100 p-3 rounded-xl space-y-2 animate-fade-in border border-stone-200">
-            <p className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Admin Authentication</p>
-            {errorMsg && <p className="text-xs text-red-500">{errorMsg}</p>}
-            
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-white border border-stone-200 p-2 text-xs rounded-lg focus:outline-none focus:border-amber-500"
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-white border border-stone-200 p-2 text-xs rounded-lg focus:outline-none focus:border-amber-500"
-              required
-            />
-            
+          <form onSubmit={handleLogin} className="flex flex-col gap-2">
+            {errorMsg && <p className="m-0 text-xs text-expense">{errorMsg}</p>}
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} required />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} required />
             <div className="flex gap-2 pt-1">
-              <button 
-                type="button" 
-                onClick={() => setShowLogin(false)} 
-                className="flex-1 text-xs py-1.5 text-stone-500 hover:bg-stone-200 rounded-lg"
-              >
+              <button type="button" onClick={() => setShowLogin(false)} className="h-11 flex-1 cursor-pointer rounded-lg text-sm text-muted hover:bg-subtle">
                 Cancel
               </button>
-              <button 
-                type="submit" 
-                className="flex-1 bg-stone-800 text-white text-xs py-1.5 rounded-lg font-medium hover:bg-stone-900"
-              >
-                Sign In
+              <button type="submit" className="h-11 flex-1 cursor-pointer rounded-lg bg-ink text-sm font-medium text-app active:bg-ink-pressed">
+                Sign in
               </button>
             </div>
           </form>
+        )}
+
+        {isDemo && !showLogin && (
+          <button onClick={handleResetDemo} className="cursor-pointer self-start text-xs text-muted underline underline-offset-[3px] hover:text-ink">
+            Reset demo data
+          </button>
         )}
       </div>
     </div>
   );
 }
 
-export function Header({ isMenuOpen, setIsMenuOpen }: HeaderProps) {
+export function MoreMenu({ open, onClose, activeTab, setActiveTab }: MoreMenuProps) {
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-stone-200 px-4 py-3 flex items-center justify-between shadow-xs">
-      <button 
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        className="p-2 -ml-2 rounded-lg text-stone-600 hover:bg-stone-100 focus:outline-none"
-        aria-label="Toggle menu"
-      >
-        {isMenuOpen ? (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        ) : (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-        )}
-      </button>
-      
-      <h1 className="text-xl font-bold tracking-tight text-stone-900">Brandeshof Dashboard</h1>
-      <div className="w-8"></div>
-    </header>
-  );
-}
-
-interface SidebarMenuProps {
-  activeTab: Tab;
-  setActiveTab: (tab: Tab) => void;
-  setIsMenuOpen: (open: boolean) => void;
-}
-
-export function SidebarMenu({ activeTab, setActiveTab, setIsMenuOpen }: SidebarMenuProps) {
-  const menuItems = [
-    { id: 'daily-log', name: '🐔 Daily Log' },
-    { id: 'pantry', name: '📦 Pantry Manager' },
-    { id: 'sales', name: '💰 Sales Tracker' },
-    { id: 'flock', name: '🐤 Flock Manager' },
-    { id: 'transactions', name: '💰 Transactions' },
-    { id: 'reports', name: '📊 Reports & Analytics' }
-  ] as const;
-
-  return (
-    <div className="fixed inset-0 z-30 flex">
-      <div 
-        className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs" 
-        onClick={() => setIsMenuOpen(false)} 
-      />
-      <nav className="relative w-72 max-w-xs bg-white h-full shadow-xl flex flex-col p-6 mt-14 animate-fade-in">
-        <div className="space-y-1">
-
-          {menuItems.map((item) => (
+    <Sheet open={open} title="More" onClose={onClose}>
+      <div className="flex flex-col gap-2.5">
+        <span className="text-xs text-muted">Pages</span>
+        <div className="overflow-hidden rounded-xl border border-line bg-surface">
+          {MENU_TABS.map((id, i) => (
             <button
-              key={item.id}
+              key={id}
               onClick={() => {
-                setActiveTab(item.id);
-                setIsMenuOpen(false);
+                setActiveTab(id);
+                onClose();
               }}
-              className={`w-full text-left px-4 py-3 rounded-xl font-medium transition-colors ${
-                activeTab === item.id 
-                  ? 'bg-amber-50 text-amber-800' 
-                  : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-              }`}
+              className={`flex h-12 w-full cursor-pointer items-center justify-between px-3.5 text-left text-sm hover:bg-app ${i ? 'border-t border-divider' : ''} ${activeTab === id ? 'font-semibold' : ''}`}
             >
-              {item.name}
+              {TAB_TITLES[id]}
+              <span className="text-muted">›</span>
             </button>
           ))}
-          <LiveDatabaseToggle />
         </div>
-      </nav>
-    </div>
+      </div>
+
+      <AccountSection />
+    </Sheet>
   );
 }

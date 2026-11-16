@@ -45,8 +45,8 @@ export const DemoProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
       {demoMessage && (
         <div
-          className={`fixed bottom-4 right-4 text-white text-xs px-4 py-2.5 rounded-xl shadow-lg animate-bounce z-50
-          ${isDemo ? 'bg-amber-600' : 'bg-emerald-600'} `}
+          role="status"
+          className="fixed bottom-[88px] left-1/2 z-50 w-max max-w-[calc(100%-40px)] -translate-x-1/2 rounded-lg bg-ink px-4 py-2.5 text-[13px] text-app shadow-lg"
         >
           {demoMessage}
         </div>

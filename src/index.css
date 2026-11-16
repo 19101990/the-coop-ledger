@@ -1,1 +1,47 @@
 @import "tailwindcss";
+
+/* Design tokens — see design/README.md */
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Surfaces */
+  --color-page: #e9e7e1;          /* behind the app column */
+  --color-app: #f5f4f0;           /* app background */
+  --color-surface: #fbfaf7;       /* cards */
+  --color-subtle: #efede7;        /* subtle fills, tiles */
+
+  /* Borders */
+  --color-line: #e2e0d9;          /* cards, header, nav */
+  --color-edge: #dcd9d1;          /* inputs */
+  --color-divider: #e9e7e1;       /* row separators */
+
+  /* Text */
+  --color-ink: #1c1b18;
+  --color-ink-soft: #4a4842;
+  --color-muted: #6b6860;
+  --color-faint: #a19e95;
+  --color-ink-pressed: #3a3833;
+  --color-on-dark-muted: #b9b6ad;
+  --color-bar-idle: #cfccc3;
+
+  /* Semantic */
+  --color-income: oklch(0.48 0.09 155);
+  --color-income-bg: oklch(0.95 0.035 155);
+  --color-expense: oklch(0.50 0.13 28);
+  --color-gift: oklch(0.45 0.09 75);
+  --color-gift-bg: oklch(0.94 0.07 90);
+  --color-income-on-dark: oklch(0.72 0.11 155);
+  --color-expense-on-dark: oklch(0.62 0.11 30);
+}
+
+@layer base {
+  body {
+    @apply bg-page text-ink font-sans antialiased;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-faint);
+  }
+}
