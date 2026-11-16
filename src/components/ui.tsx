@@ -25,19 +25,23 @@ export function Section({
   title,
   action,
   aside,
+  control,
   children,
 }: {
   title: string;
   action?: { label: string; onClick: () => void };
   aside?: React.ReactNode;
+  /** Small control on the heading line, e.g. a ScopeToggle. */
+  control?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="flex flex-col gap-2.5">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className={`flex justify-between gap-3 ${control ? 'items-center' : 'items-baseline'}`}>
         <h2 className="m-0 text-[15px] font-semibold">{title}</h2>
         {action && <TextButton onClick={action.onClick}>{action.label}</TextButton>}
         {aside && <span className="text-xs text-muted">{aside}</span>}
+        {control}
       </div>
       {children}
     </section>
@@ -121,6 +125,41 @@ export function Segmented<T extends string>({
             aria-pressed={active}
             className={`flex-1 cursor-pointer rounded-md ${compact ? 'h-8 text-[13px]' : 'h-[38px] text-sm'} ${
               active ? 'bg-surface font-semibold text-ink' : 'font-normal text-muted hover:text-ink'
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Compact two-or-three-way switch that fits on a section heading line. */
+export function ScopeToggle<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  /** Accessible name, e.g. "Customers period". */
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex rounded-md bg-page p-0.5">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            aria-pressed={active}
+            className={`h-6 cursor-pointer rounded px-2 text-[11px] ${
+              active ? 'bg-surface font-medium text-ink' : 'text-muted hover:text-ink'
             }`}
           >
             {o.label}

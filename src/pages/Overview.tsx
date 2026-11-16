@@ -7,7 +7,7 @@ import PageContainer from '../components/PageContainer';
 import LoadingSpinner from '../components/LoadingSpinner';
 import NetResultCard from '../components/NetResultCard';
 import PantrySection from '../components/PantrySection';
-import { Card, EmptyState, Section, Segmented } from '../components/ui';
+import { Card, EmptyState, ScopeToggle, Section } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
 import {
   categoryCode,
@@ -131,8 +131,9 @@ export default function Overview({ month, onViewLedger }: OverviewProps) {
         <OverviewContent data={data} monthName={monthName} onViewLedger={onViewLedger} />
       )}
 
-      {/* Outside the month-loading branch so it stays mounted across month switches:
-          keeps the All time / month choice and loads all-time sales only once. */}
+      {/* Outside the month-loading branch so they stay mounted across month switches:
+          each keeps its month / all-time choice and loads all-time data only once. */}
+      <CategoriesSection monthTransactions={data?.transactions ?? null} monthName={monthName} />
       <CustomersSection monthSales={data?.sales ?? null} monthName={monthName} />
     </PageContainer>
   );
@@ -151,14 +152,6 @@ function OverviewContent({
 
   const income = transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
   const expense = transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-
-  // Spending by category, largest first; bars are relative to the largest.
-  const byCategory = Object.entries(
-    transactions
-      .filter((t) => t.type === 'expense')
-      .reduce<Record<string, number>>((acc, t) => ({ ...acc, [t.category]: (acc[t.category] || 0) + t.amount }), {})
-  ).sort((a, b) => b[1] - a[1]);
-  const maxCategory = Math.max(1, ...byCategory.map(([, v]) => v));
 
   const stats = [
     { label: 'Eggs today', value: String(eggsToday) },
@@ -206,53 +199,151 @@ function OverviewContent({
         </Card>
       </Section>
 
-      <Section title="Spending by category">
-        {byCategory.length === 0 ? (
-          <Card padded={false}>
-            <EmptyState>No expenses this month.</EmptyState>
-          </Card>
-        ) : (
-          <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3.5">
-            {byCategory.map(([name, value]) => (
-              <div key={name} className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-[13px]">
-                  <span>{name}</span>
-                  <span className="font-mono tabular-nums">{formatEUR(value)}</span>
-                </div>
-                <div className="h-1 rounded-sm bg-subtle">
-                  <div className="h-1 rounded-sm bg-ink" style={{ width: `${(value / maxCategory) * 100}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
     </>
+  );
+}
+
+// ---------- Month / all-time sections ----------
+
+/** Period shown by a section with its own switch: the header month, or everything. */
+type Scope = 'month' | 'all';
+
+const scopeOptions = (monthName: string) => [
+  { value: 'month' as const, label: monthName },
+  { value: 'all' as const, label: 'All time' },
+];
+
+/** Load every row of a query. Supabase caps a request at 1000 rows, so fetch in pages. */
+async function fetchAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const PAGE = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) return rows;
+  }
+}
+
+/**
+ * Data that doesn't depend on the month, loaded once per mode.
+ * Lives in sections rendered outside the month-loading branch, so it survives month switches.
+ */
+function useAllTime<T>(load: (isDemo: boolean) => Promise<T[]>, what: string) {
+  const { isDemo } = useDemo();
+  const [rows, setRows] = useState<T[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    load(isDemo)
+      .then((r) => !cancelled && setRows(r))
+      .catch((err) => {
+        console.error(`Failed to load all-time ${what}:`, err);
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `load` is a module-level function; only the mode matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemo]);
+
+  return { rows, failed };
+}
+
+// ---------- Categories ----------
+
+type CategoryTx = Pick<TransactionEntry, 'type' | 'category' | 'amount'>;
+
+async function loadAllTransactions(isDemo: boolean): Promise<CategoryTx[]> {
+  if (isDemo) return demoStore.getTransactions();
+  const rows = await fetchAllPages<CategoryTx>((from, to) =>
+    supabase.from('transactions').select('type, category, amount').order('id', { ascending: true }).range(from, to)
+  );
+  return rows.map((t) => ({ ...t, amount: Number(t.amount) }));
+}
+
+function CategoriesSection({ monthTransactions, monthName }: { monthTransactions: CategoryTx[] | null; monthName: string }) {
+  // Starts on the month, matching the net result card above.
+  const [scope, setScope] = useState<Scope>('month');
+  const allTime = useAllTime(loadAllTransactions, 'transactions');
+
+  const transactions = scope === 'all' ? allTime.rows : monthTransactions;
+
+  // Categories that had entries in the period, grouped by type, largest first.
+  const group = (type: CategoryTx['type'], label: string) => {
+    const totals: Record<string, number> = {};
+    (transactions ?? []).filter((t) => t.type === type).forEach((t) => (totals[t.category] = (totals[t.category] || 0) + t.amount));
+    const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    return { type, label, rows, total: rows.reduce((sum, [, v]) => sum + v, 0) };
+  };
+  const groups = [group('income', 'Income'), group('expense', 'Expenses')].filter((g) => g.rows.length > 0);
+  // One scale for every bar, so income and expense categories can be compared directly.
+  const max = Math.max(1, ...groups.flatMap((g) => g.rows.map(([, v]) => v)));
+
+  return (
+    <Section
+      title="Categories"
+      control={<ScopeToggle label="Categories period" options={scopeOptions(monthName)} value={scope} onChange={setScope} />}
+    >
+      <Card padded={false}>
+        {!transactions ? (
+          scope === 'all' && allTime.failed ? (
+            <EmptyState>Could not load categories.</EmptyState>
+          ) : (
+            <LoadingSpinner message="Loading categories…" size="sm" />
+          )
+        ) : groups.length === 0 ? (
+          <EmptyState>{scope === 'all' ? 'No entries yet.' : `No entries in ${monthName}.`}</EmptyState>
+        ) : (
+          groups.map((g) => (
+            <div key={g.type} className={`flex flex-col gap-3 p-3.5 ${rowDivider}`}>
+              <div className="flex items-baseline justify-between text-xs text-muted">
+                <span className="flex items-center gap-1.5">
+                  <span className={`h-2 w-2 rounded-xs ${g.type === 'income' ? 'bg-income' : 'bg-expense'}`} />
+                  {g.label}
+                </span>
+                <span className={`font-mono tabular-nums ${g.type === 'income' ? 'text-income' : 'text-expense'}`}>
+                  {formatSignedEUR(g.type === 'income' ? g.total : -g.total)}
+                </span>
+              </div>
+              {g.rows.map(([name, value]) => (
+                <div key={name} className="flex flex-col gap-1.5">
+                  <div className="flex justify-between text-[13px]">
+                    <span>{name}</span>
+                    <span className="font-mono tabular-nums">{formatEUR(value)}</span>
+                  </div>
+                  <div className="h-1 rounded-sm bg-subtle">
+                    <div
+                      className={`h-1 rounded-sm ${g.type === 'income' ? 'bg-income' : 'bg-expense'}`}
+                      style={{ width: `${(value / max) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </Card>
+    </Section>
   );
 }
 
 // ---------- Customers ----------
 
-type CustomerScope = 'all' | 'month';
-
-/** All paid sales ever. Supabase caps a request at 1000 rows, so load in pages. */
 async function loadAllPaidSales(isDemo: boolean): Promise<OverviewSale[]> {
   if (isDemo) return demoStore.getAllSales().filter((s) => s.status === 'Paid');
-
-  const PAGE = 1000;
-  const rows: OverviewSale[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
+  return fetchAllPages<OverviewSale>((from, to) =>
+    supabase
       .from('sales')
       .select('customer_name, amount_boxes, price, status, date')
       .eq('status', 'Paid')
       .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE) return rows;
-  }
+      .range(from, to)
+  );
 }
 
 /** Customers ranked by spend: paid sales only (gifts excluded). */
@@ -270,46 +361,24 @@ function summariseCustomers(sales: OverviewSale[]) {
 }
 
 function CustomersSection({ monthSales, monthName }: { monthSales: OverviewSale[] | null; monthName: string }) {
-  const { isDemo } = useDemo();
-  const [scope, setScope] = useState<CustomerScope>('all');
+  // Starts on all time.
+  const [scope, setScope] = useState<Scope>('all');
   const [showAll, setShowAll] = useState(false);
-  // All-time sales don't depend on the month, so they're loaded once, not on every month switch.
-  const [allTimeSales, setAllTimeSales] = useState<OverviewSale[] | null>(null);
-  const [allTimeError, setAllTimeError] = useState(false);
+  const allTime = useAllTime(loadAllPaidSales, 'sales');
 
-  useEffect(() => {
-    let cancelled = false;
-    loadAllPaidSales(isDemo)
-      .then((rows) => !cancelled && setAllTimeSales(rows))
-      .catch((err) => {
-        console.error('Failed to load all-time sales:', err);
-        if (!cancelled) setAllTimeError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isDemo]);
-
-  const sales = scope === 'all' ? allTimeSales : monthSales;
+  const sales = scope === 'all' ? allTime.rows : monthSales;
   const customers = sales ? summariseCustomers(sales) : [];
   const topSpend = customers[0]?.spent || 1;
   const visible = showAll ? customers : customers.slice(0, CUSTOMERS_COLLAPSED);
-  const periodLabel = scope === 'all' ? 'all time' : monthName;
 
   return (
-    <Section title="Customers" aside={sales ? `${customers.length} customer${customers.length === 1 ? '' : 's'} · ${periodLabel}` : undefined}>
-      <Segmented
-        compact
-        options={[
-          { value: 'all', label: 'All time' },
-          { value: 'month', label: `${monthName} only` },
-        ]}
-        value={scope}
-        onChange={setScope}
-      />
+    <Section
+      title="Customers"
+      control={<ScopeToggle label="Customers period" options={scopeOptions(monthName)} value={scope} onChange={setScope} />}
+    >
       <Card padded={false}>
         {!sales ? (
-          scope === 'all' && allTimeError ? (
+          scope === 'all' && allTime.failed ? (
             <EmptyState>Could not load customers.</EmptyState>
           ) : (
             <LoadingSpinner message="Loading customers…" size="sm" />
