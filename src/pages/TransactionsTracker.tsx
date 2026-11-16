@@ -76,6 +76,11 @@ export default function TransactionsTracker() {
 
   // Details sheet
   const [selected, setSelected] = useState<TransactionEntry | null>(null);
+  const [editingSelected, setEditingSelected] = useState(false);
+  const closeDetails = () => {
+    setSelected(null);
+    setEditingSelected(false);
+  };
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
 
@@ -208,7 +213,7 @@ export default function TransactionsTracker() {
     if (isDemo) {
       demoStore.deleteTransaction(id);
       triggerDemoToast('Demo: transaction deleted from the sandbox');
-      setSelected(null);
+      closeDetails();
       setVersion((v) => v + 1);
       return;
     }
@@ -217,7 +222,7 @@ export default function TransactionsTracker() {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
       if (error) throw error;
       triggerDemoToast('Transaction deleted');
-      setSelected(null);
+      closeDetails();
       setVersion((v) => v + 1);
     } catch (err) {
       alert(`Deletion failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -372,8 +377,24 @@ export default function TransactionsTracker() {
         </Card>
       </Section>
 
-      <Sheet open={selected !== null} title={selected ? selected.description || selected.category : ''} onClose={() => setSelected(null)}>
-        {selected && (
+      <Sheet
+        open={selected !== null}
+        title={editingSelected ? 'Edit entry' : selected ? selected.description || selected.category : ''}
+        onClose={closeDetails}
+      >
+        {selected && editingSelected && (
+          <EditTransactionForm
+            key={selected.id}
+            tx={selected}
+            categories={categories}
+            onCancel={() => setEditingSelected(false)}
+            onSaved={() => {
+              closeDetails();
+              setVersion((v) => v + 1);
+            }}
+          />
+        )}
+        {selected && !editingSelected && (
           <div className="flex flex-col gap-4">
             <div className="flex items-baseline justify-between border-b border-ink pb-2">
               <span className="text-[13px] text-muted">{selected.type === 'income' ? 'Income' : 'Expense'}</span>
@@ -396,12 +417,123 @@ export default function TransactionsTracker() {
               ))}
             </Card>
 
-            <Button variant="danger" size="lg" className="w-full" onClick={() => handleDelete(selected.id)}>
-              Delete entry
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="danger" onClick={() => handleDelete(selected.id)}>
+                Delete entry
+              </Button>
+              <Button onClick={() => setEditingSelected(true)}>Edit entry</Button>
+            </div>
           </div>
         )}
       </Sheet>
     </PageContainer>
+  );
+}
+
+/** Edit form shown inside the entry details sheet. */
+function EditTransactionForm({
+  tx,
+  categories,
+  onCancel,
+  onSaved,
+}: {
+  tx: TransactionEntry;
+  categories: TransactionCategory[];
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { isDemo, triggerDemoToast } = useDemo();
+  const [type, setType] = useState<TransactionEntry['type']>(tx.type);
+  const [date, setDate] = useState(tx.date);
+  const [category, setCategory] = useState(tx.category);
+  const [amount, setAmount] = useState(tx.amount.toFixed(2));
+  const [description, setDescription] = useState(tx.description ?? '');
+  const [saving, setSaving] = useState(false);
+
+  const options = categories.filter((c) => c.type === type).map((c) => c.name);
+  // Keep the entry's own category selectable even if it's not in the current list.
+  if (type === tx.type && !options.includes(tx.category)) options.unshift(tx.category);
+
+  const amountValue = parseFloat(amount);
+  const valid = category !== '' && amountValue > 0;
+
+  const handleSave = async () => {
+    if (!valid || saving) return;
+    setSaving(true);
+    const fields = { type, date, category, amount: amountValue, description: description.trim() || null };
+    try {
+      if (isDemo) {
+        demoStore.updateTransaction(tx.id, fields);
+        triggerDemoToast('Demo: entry updated in the sandbox');
+      } else {
+        const { error } = await supabase.from('transactions').update(fields).eq('id', tx.id);
+        if (error) throw error;
+        triggerDemoToast('Entry updated');
+      }
+      onSaved();
+    } catch (err) {
+      console.error('Failed to update transaction:', err);
+      alert(`Saving failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Segmented
+        options={[
+          { value: 'expense', label: 'Expense' },
+          { value: 'income', label: 'Income' },
+        ]}
+        value={type}
+        onChange={(v) => {
+          setType(v);
+          // Categories differ per type; keep the original when switching back.
+          setCategory(v === tx.type ? tx.category : '');
+        }}
+      />
+
+      <DateSelector value={date} onChange={setDate} label="Date" />
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <Field label="Category">
+          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="" disabled>Select</option>
+            {options.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Amount">
+          <label className="flex h-11 items-center gap-px rounded-lg border border-edge bg-surface px-3 focus-within:border-ink">
+            <span className="font-mono text-muted">€</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              aria-label="Amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="min-w-0 flex-1 border-0 bg-transparent font-mono text-[15px] text-ink outline-none"
+            />
+          </label>
+        </Field>
+      </div>
+
+      <Field label="Description (optional)">
+        <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Button onClick={onCancel} disabled={saving}>
+          Back
+        </Button>
+        <PrimaryButton size="md" onClick={handleSave} disabled={!valid || saving}>
+          {saving ? 'Saving…' : 'Save changes'}
+        </PrimaryButton>
+      </div>
+    </div>
   );
 }

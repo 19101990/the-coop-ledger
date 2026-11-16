@@ -71,10 +71,22 @@ export function Field({
 
 // ---------- Buttons ----------
 
-export function PrimaryButton({ className = '', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+/** Button heights: sm 40px (in-list actions), md 44px (sheet actions), lg 52px (main form submit). */
+type ButtonSize = 'sm' | 'md' | 'lg';
+const BUTTON_SIZES: Record<ButtonSize, string> = {
+  sm: 'h-10 rounded-lg px-4 text-[13px]',
+  md: 'h-11 rounded-lg px-4 text-sm',
+  lg: 'h-[52px] rounded-xl text-base',
+};
+
+export function PrimaryButton({
+  size = 'lg',
+  className = '',
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { size?: ButtonSize }) {
   return (
     <button
-      className={`h-[52px] w-full cursor-pointer rounded-xl bg-ink text-base font-medium text-app active:bg-ink-pressed disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
+      className={`w-full cursor-pointer bg-ink font-medium text-app active:bg-ink-pressed disabled:cursor-not-allowed disabled:opacity-40 ${BUTTON_SIZES[size]} ${className}`}
       {...props}
     />
   );
@@ -86,18 +98,18 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   danger: 'border-expense/40 text-expense hover:bg-expense/5 active:bg-expense/10',
 };
 
-/** Outlined button for secondary actions (Edit, Delete…). Sizes: md 40px, lg 52px. */
+/** Outlined button for secondary actions (Edit, Delete, Back…). */
 export function Button({
   variant = 'secondary',
   size = 'md',
   className = '',
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: 'md' | 'lg' }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: ButtonVariant; size?: ButtonSize }) {
   return (
     <button
       type="button"
       className={`cursor-pointer border bg-surface font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
-        size === 'lg' ? 'h-[52px] rounded-xl text-base' : 'h-10 rounded-lg px-4 text-[13px]'
+        BUTTON_SIZES[size]
       } ${BUTTON_VARIANTS[variant]} ${className}`}
       {...props}
     />

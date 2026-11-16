@@ -5,9 +5,11 @@ import type { SaleEntry } from '../types/types';
 import DateSelector from '../components/DateSelector';
 import { demoStore } from '../demo/demoStore';
 import PageContainer from '../components/PageContainer';
-import { Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
+import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider } from '../components/uiStyles';
 import { formatDayMonth, formatEUR } from '../utils/format';
+import EditSaleSheet from '../components/EditSaleSheet';
+import { EGG_SALES_CATEGORY, hasIncome, saleIncomeDescription, takeFromPantry } from '../data/saleEffects';
 
 interface SaleRow {
   id: number | string;
@@ -21,7 +23,8 @@ interface SaleRow {
 const toSaleEntry = (row: SaleRow): SaleEntry => ({
   id: row.id.toString(),
   customerName: row.customer_name,
-  amountBoxes: Number(row.amount_boxes) * 10,
+  // Stored as boxes of 10 (e.g. 1.2); round so 0.3 * 10 gives 3, not 3.0000000000000004.
+  amountBoxes: Math.round(Number(row.amount_boxes) * 10),
   price: Number(row.price),
   status: row.status,
   date: row.date
@@ -47,6 +50,9 @@ export default function SalesTracker() {
   const [saleDate, setSaleDate] = useState(getTodayString());
 
   const [salesLog, setSalesLog] = useState<SaleEntry[]>([]);
+  // Sale open in the edit sheet; bump salesVersion to reload the list after an edit/delete.
+  const [editingSale, setEditingSale] = useState<SaleEntry | null>(null);
+  const [salesVersion, setSalesVersion] = useState(0);
 
   useEffect(() => {
     const applyCustomers = (names: string[]) => {
@@ -174,20 +180,10 @@ export default function SalesTracker() {
     };
 
     fetchRecentSales();
-  }, [isDemo]);
+  }, [isDemo, salesVersion]);
 
-  // Pantry stock change for a sale: deduct full boxes, then loose eggs (breaking a box if needed).
-  const deductFromPantry = (pantry: { boxes_for_sale: number; loose_eggs: number }, rawEggs: number) => {
-    let newLoose = pantry.loose_eggs - (rawEggs % 10);
-    let newSaleBoxes = pantry.boxes_for_sale - Math.floor(rawEggs / 10);
-
-    if (newLoose < 0) {
-      newLoose += 10;
-      newSaleBoxes -= 1;
-    }
-
-    return { newSaleBoxes: Math.max(0, newSaleBoxes), newLoose: Math.max(0, newLoose) };
-  };
+  // Pantry stock change for a sale (shared with editing/deleting sales).
+  const deductFromPantry = takeFromPantry;
 
   const resetSaleForm = () => {
     setEggsSoldInput('');
@@ -228,12 +224,12 @@ export default function SalesTracker() {
       const { newSaleBoxes, newLoose } = deductFromPantry(pantry, rawEggs);
       demoStore.setPantry({ ...pantry, boxes_for_sale: newSaleBoxes, loose_eggs: newLoose });
 
-      if (paymentStatus === 'Paid' && finalPrice > 0) {
+      if (hasIncome(paymentStatus, finalPrice)) {
         demoStore.addTransaction({
           date: saleDateFinal,
           type: 'income',
-          category: 'Egg Sales',
-          description: `Sold ${rawEggs} eggs to ${selectedCustomer}`,
+          category: EGG_SALES_CATEGORY,
+          description: saleIncomeDescription(rawEggs, selectedCustomer),
           amount: finalPrice
         });
       }
@@ -287,15 +283,15 @@ export default function SalesTracker() {
         ]);
 
       if (updatePantryError) throw updatePantryError;
-      if (paymentStatus === 'Paid' && finalPrice > 0) {
+      if (hasIncome(paymentStatus, finalPrice)) {
         const { error: txError } = await supabase
           .from('transactions')
           .insert([
             {
               date: finalDate || new Date().toISOString().split('T')[0],
               type: 'income',
-              category: 'Egg Sales',
-              description: `Sold ${rawEggs} eggs to ${selectedCustomer}`,
+              category: EGG_SALES_CATEGORY,
+              description: saleIncomeDescription(rawEggs, selectedCustomer),
               amount: finalPrice
             }
           ]);
@@ -445,7 +441,12 @@ export default function SalesTracker() {
             <EmptyState>No sales yet.</EmptyState>
           ) : (
             salesLog.map((sale) => (
-              <div key={sale.id} className={`flex items-center gap-3 px-3.5 py-3 ${rowDivider}`}>
+              <button
+                key={sale.id}
+                type="button"
+                onClick={() => setEditingSale(sale)}
+                className={`flex w-full cursor-pointer items-center gap-3 px-3.5 py-3 text-left hover:bg-app ${rowDivider}`}
+              >
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-sm font-medium">{sale.customerName}</span>
                   <span className="text-xs text-muted">
@@ -459,11 +460,23 @@ export default function SalesTracker() {
                     {formatEUR(sale.price)}
                   </span>
                 )}
-              </div>
+                <Chevron className="-rotate-90 text-faint" />
+              </button>
             ))
           )}
         </Card>
       </Section>
+
+      <EditSaleSheet
+        key={editingSale?.id ?? 'none'}
+        sale={editingSale}
+        customers={customers}
+        onClose={() => setEditingSale(null)}
+        onChanged={() => {
+          setEditingSale(null);
+          setSalesVersion((v) => v + 1);
+        }}
+      />
     </PageContainer>
   );
 }

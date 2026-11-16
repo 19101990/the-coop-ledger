@@ -266,6 +266,9 @@ export const demoStore = {
     update('sales', list => [entry, ...list]);
     return entry;
   },
+  updateSale: (id: number, patch: Partial<Omit<DemoSale, 'id'>>) =>
+    update('sales', list => list.map(s => (s.id === id ? { ...s, ...patch } : s))),
+  deleteSale: (id: number) => update('sales', list => list.filter(s => s.id !== id)),
 
   // Daily logs
   getDailyLogs(from: number, to: number): DBLogEntry[] {
@@ -299,6 +302,8 @@ export const demoStore = {
     update('transactions', list => [entry, ...list]);
     return entry;
   },
+  updateTransaction: (id: number, patch: Partial<Omit<TransactionEntry, 'id'>>) =>
+    update('transactions', list => list.map(t => (t.id === id ? { ...t, ...patch } : t))),
   deleteTransaction: (id: number) => update('transactions', list => list.filter(t => t.id !== id)),
 
   // Flock

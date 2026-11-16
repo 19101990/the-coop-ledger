@@ -204,8 +204,8 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
                     )}
 
                     <div className="grid grid-cols-2 gap-2">
-                      <Button onClick={() => onEdit(log)}>Edit</Button>
-                      <Button variant="danger" onClick={() => handleDeleteLog(log.id)}>Delete</Button>
+                      <Button size="sm" onClick={() => onEdit(log)}>Edit</Button>
+                      <Button size="sm" variant="danger" onClick={() => handleDeleteLog(log.id)}>Delete</Button>
                     </div>
                   </div>
                 </details>
