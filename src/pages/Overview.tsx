@@ -9,9 +9,8 @@ import NetResultCard from '../components/NetResultCard';
 import PantrySection from '../components/PantrySection';
 import { Card, EmptyState, ScopeToggle, Section } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
+import TransactionRow from '../components/TransactionRow';
 import {
-  categoryCode,
-  formatDayMonth,
   formatDayMonthMaybeYear,
   formatEUR,
   formatMonthLong,
@@ -20,6 +19,7 @@ import {
   type YearMonth,
 } from '../utils/format';
 import { logTotal, todayISO } from '../utils/eggs';
+import { compareNewestFirst } from '../utils/transactions';
 
 interface OverviewProps {
   month: YearMonth;
@@ -179,22 +179,8 @@ function OverviewContent({
           {transactions.length === 0 ? (
             <EmptyState>No entries this month.</EmptyState>
           ) : (
-            transactions.slice(0, 5).map((t) => (
-              <div key={t.id} className={`flex items-center gap-3 px-3.5 py-3 ${rowDivider}`}>
-                <span className="grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-subtle font-mono text-[11px] text-ink-soft">
-                  {categoryCode(t.category)}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-sm font-medium">{t.description || t.category}</span>
-                  <span className="text-xs text-muted">
-                    {t.category} · {formatDayMonth(t.date)}
-                  </span>
-                </div>
-                <span className={`font-mono text-sm tabular-nums ${t.type === 'income' ? 'text-income' : 'text-expense'}`}>
-                  {formatSignedEUR(t.type === 'income' ? t.amount : -t.amount)}
-                </span>
-              </div>
-            ))
+            // Same order and row style as the Ledger list.
+            [...transactions].sort(compareNewestFirst).slice(0, 5).map((t) => <TransactionRow key={t.id} tx={t} />)
           )}
         </Card>
       </Section>

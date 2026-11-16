@@ -36,10 +36,6 @@ export const formatMonthShort = ({ year, month }: YearMonth) => `${MONTHS[month]
 export const formatMonthLong = ({ month }: YearMonth) => MONTHS_LONG[month];
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** Two-letter tile code for a category: "Egg Sales" → "EG", "Food" → "FO". */
-export const categoryCode = (name: string): string =>
-  name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || '··';
-
 /** "€ 6,00" */
 export const formatEUR = (n: number): string => eur.format(n);
 
