@@ -8,7 +8,7 @@ import PageContainer from '../components/PageContainer';
 // Live app data starts here; earlier years come from legacy_yearly_ledger.
 const LIVE_DATA_START = '2026-01-01';
 
-type EggColumns = 'eggs_chocolate' | 'eggs_brown' | 'eggs_beige' | 'eggs_olive' | 'eggs_blue' | 'eggs_nato' | 'eggs_perlhuhn';
+type EggColumns = 'eggs_chocolate' | 'eggs_brown' | 'eggs_beige' | 'eggs_white' | 'eggs_olive' | 'eggs_blue' | 'eggs_nato' | 'eggs_perlhuhn';
 
 interface ReportSourceData {
   legacyData: Array<{ year: number; eggs_collected: number; eggs_sold: number; revenue: number }>;
@@ -54,6 +54,7 @@ export default function Reports() {
           eggs_chocolate,
           eggs_brown,
           eggs_beige,
+          eggs_white,
           eggs_olive,
           eggs_blue,
           eggs_nato,
@@ -93,6 +94,7 @@ export default function Reports() {
             (log.eggs_chocolate || 0) +
             (log.eggs_brown || 0) +
             (log.eggs_beige || 0) +
+            (log.eggs_white || 0) +
             (log.eggs_olive || 0) +
             (log.eggs_blue || 0) +
             (log.eggs_nato || 0) +

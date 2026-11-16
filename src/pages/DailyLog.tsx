@@ -154,15 +154,8 @@ export default function DailyLog() {
         (log.eggs_perlhuhn || 0)
       );
     }
-    return (
-      (log.chocolate || 0) +
-      (log.brown || 0) +
-      (log.beige || 0) +
-      (log.olive || 0) +
-      (log.blue || 0) +
-      (log.nato || 0) +
-      (log.perlhuhn || 0)
-    );
+    // Sum every variety so a newly added colour can never be left out of the total.
+    return Object.values(log).reduce((sum, count) => sum + (count || 0), 0);
   };
 
   const handleEditClick = (log: DBLogEntry) => {
