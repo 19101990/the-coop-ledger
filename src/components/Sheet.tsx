@@ -5,10 +5,12 @@ interface SheetProps {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Take the whole screen (height of the viewport, width of the app column) instead of a bottom sheet. */
+  fullScreen?: boolean;
 }
 
-/** Bottom sheet: dimmed backdrop, panel slides up from the bottom of the app column. */
-export default function Sheet({ open, title, onClose, children }: SheetProps) {
+/** Bottom sheet (or full-screen panel): dimmed backdrop, panel in the app column. */
+export default function Sheet({ open, title, onClose, children, fullScreen = false }: SheetProps) {
   useEffect(() => {
     if (!open) return;
 
@@ -35,9 +37,15 @@ export default function Sheet({ open, title, onClose, children }: SheetProps) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex max-h-[92vh] w-full max-w-[440px] flex-col gap-[18px] overflow-y-auto rounded-t-[18px] bg-app px-5 pt-2.5 pb-[calc(20px+env(safe-area-inset-bottom))]"
+        className={`relative flex w-full max-w-[440px] flex-col gap-[18px] overflow-y-auto bg-app px-5 pb-[calc(20px+env(safe-area-inset-bottom))] ${
+          fullScreen
+            ? 'h-[100dvh] pt-[calc(14px+env(safe-area-inset-top))]'
+            : 'max-h-[92vh] rounded-t-[18px] pt-2.5'
+        }`}
       >
-        <span className="h-1 w-9 self-center rounded-sm bg-edge" />
+        {/* Grab handle only on bottom sheets */}
+        {/* Pulled closer to the title than the normal section spacing. */}
+        {!fullScreen && <span className="-mb-2.5 h-1 w-9 flex-none self-center rounded-sm bg-edge" />}
         <div className="flex items-center gap-2">
           <h2 className="m-0 flex-1 text-lg font-semibold">{title}</h2>
           <button

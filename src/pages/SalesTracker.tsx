@@ -454,9 +454,9 @@ export default function SalesTracker() {
                   </span>
                 </div>
                 {sale.status === 'Gift' ? (
-                  <span className="rounded-md bg-gift-bg px-2 py-0.5 font-mono text-sm text-gift">Gift</span>
+                  <span className="rounded-md bg-gift-bg px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-[.06em] text-gift uppercase">Gift</span>
                 ) : (
-                  <span className="rounded-md bg-income-bg px-2 py-0.5 font-mono text-sm text-income tabular-nums">
+                  <span className="rounded-md bg-income-bg px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-[.06em] text-income uppercase tabular-nums">
                     {formatEUR(sale.price)}
                   </span>
                 )}

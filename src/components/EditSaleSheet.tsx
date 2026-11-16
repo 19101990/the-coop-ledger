@@ -79,7 +79,7 @@ export default function EditSaleSheet({ sale, customers, onClose, onChanged }: E
     <Sheet open title="Edit sale" onClose={onClose}>
       <div className="flex flex-col gap-4">
         <Field label="Customer">
-          <Select value={customer} onChange={(e) => setCustomer(e.target.value)}>
+          <Select onPage value={customer} onChange={(e) => setCustomer(e.target.value)}>
             {customerOptions.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}

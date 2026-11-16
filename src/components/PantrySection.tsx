@@ -126,11 +126,10 @@ export default function PantrySection() {
     { label: 'Personal', n: boxesPersonal, unit: 'boxes' },
     { label: 'Loose', n: looseEggs, unit: 'eggs' },
   ];
-  const onHand = (boxesForSale + boxesPersonal) * 10 + looseEggs;
 
   return (
     <>
-      <Section title="Pantry" action={{ label: 'Adjust', onClick: () => setIsOpen(true) }}>
+      <Section title="Pantry" action={{ label: 'Adjust', onClick: () => setIsOpen(true), underline: true }}>
         <div className="grid grid-cols-3 rounded-xl border border-line bg-surface">
           {cells.map((c, i) => (
             <div key={c.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>
@@ -142,15 +141,12 @@ export default function PantrySection() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between gap-3 px-0.5 text-xs text-muted">
-          <span>{onHand} eggs on hand</span>
-          {potentialNewBoxes > 0 && (
-            <span>
-              Enough loose to pack {potentialNewBoxes} box{potentialNewBoxes > 1 ? 'es' : ''}
-              {remainingLoose > 0 ? `, ${remainingLoose} left over` : ''}
-            </span>
-          )}
-        </div>
+        {potentialNewBoxes > 0 && (
+          <p className="m-0 px-0.5 text-right text-xs text-muted">
+            Enough loose to pack {potentialNewBoxes} box{potentialNewBoxes > 1 ? 'es' : ''}
+            {remainingLoose > 0 ? `, ${remainingLoose} left over` : ''}
+          </p>
+        )}
       </Section>
 
       <Sheet open={isOpen} title="Adjust pantry" onClose={() => setIsOpen(false)}>
@@ -161,9 +157,9 @@ export default function PantrySection() {
           </p>
 
           <div className="flex flex-col gap-3">
-            <FormInput label="Boxes for sale" type="text" inputMode="numeric" pattern="[0-9]*" value={editForSale} onChange={numericChange(setEditForSale)} className="font-mono" />
-            <FormInput label="Boxes for personal use" type="text" inputMode="numeric" pattern="[0-9]*" value={editPersonal} onChange={numericChange(setEditPersonal)} className="font-mono" />
-            <FormInput label="Loose eggs" type="text" inputMode="numeric" pattern="[0-9]*" value={editLoose} onChange={numericChange(setEditLoose)} className="font-mono" />
+            <FormInput onPage label="Boxes for sale" type="text" inputMode="numeric" pattern="[0-9]*" value={editForSale} onChange={numericChange(setEditForSale)} className="font-mono" />
+            <FormInput onPage label="Boxes for personal use" type="text" inputMode="numeric" pattern="[0-9]*" value={editPersonal} onChange={numericChange(setEditPersonal)} className="font-mono" />
+            <FormInput onPage label="Loose eggs" type="text" inputMode="numeric" pattern="[0-9]*" value={editLoose} onChange={numericChange(setEditLoose)} className="font-mono" />
           </div>
 
           <PrimaryButton type="submit" disabled={saving}>

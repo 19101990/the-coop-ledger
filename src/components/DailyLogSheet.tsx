@@ -33,12 +33,14 @@ export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: Da
   const [saving, setSaving] = useState(false);
 
   const total = countsTotal(counts);
+  // Something to save: eggs collected, boxes packed or a note (any of these alone is a valid entry).
+  const hasEntry = total > 0 || boxesForSale > 0 || boxesPersonal > 0 || notes.trim() !== '';
 
   const adjust = (variety: EggVariety, amount: number) =>
     setCounts((prev) => ({ ...prev, [variety]: Math.max(0, prev[variety] + amount) }));
 
   const handleSave = async () => {
-    if (total <= 0 || saving) return;
+    if (!hasEntry || saving) return;
     setSaving(true);
 
     const logFields = {
@@ -120,7 +122,7 @@ export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: Da
   ];
 
   return (
-    <Sheet open={open} title={editingLog ? 'Edit daily log' : 'Daily egg log'} onClose={onClose}>
+    <Sheet open={open} title={editingLog ? 'Edit daily log' : 'Daily egg log'} onClose={onClose} fullScreen>
       <div className="flex flex-col gap-4">
         <DateSelector value={date} onChange={setDate} label="Date collected" />
 
@@ -169,7 +171,7 @@ export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: Da
           </span>
         </div>
 
-        <PrimaryButton onClick={handleSave} disabled={total <= 0 || saving}>
+        <PrimaryButton onClick={handleSave} disabled={!hasEntry || saving}>
           {saving ? 'Saving…' : editingLog ? 'Update daily log' : 'Save daily log'}
         </PrimaryButton>
       </div>

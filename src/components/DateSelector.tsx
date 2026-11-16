@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { formatFullDate, formatWeekdayDate } from '../utils/format';
+import { Chevron } from './ui';
 
 interface DateSelectorProps {
   value: string;
@@ -67,8 +68,9 @@ export default function DateSelector({
     }
   }, []);
 
+  // Grid + drawn chevron so the arrow sits exactly in the middle of the button.
   const arrowClass =
-    'h-11 w-11 flex-none cursor-pointer rounded-lg border border-edge bg-surface text-lg text-ink-soft hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-35';
+    'grid h-11 w-11 flex-none cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-ink hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-surface';
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -76,7 +78,7 @@ export default function DateSelector({
 
       <div className="flex items-center gap-2">
         <button type="button" onClick={handlePreviousDay} className={arrowClass} aria-label="Previous day">
-          ‹
+          <Chevron size={20} className="rotate-90" />
         </button>
         <span className="grid h-11 flex-1 place-items-center rounded-lg border border-edge bg-surface text-sm font-medium">
           {value ? formatDisplayDate(value) : '—'}
@@ -88,7 +90,7 @@ export default function DateSelector({
           className={arrowClass}
           aria-label="Next day"
         >
-          ›
+          <Chevron size={20} className="-rotate-90" />
         </button>
       </div>
     </div>

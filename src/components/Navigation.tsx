@@ -219,7 +219,7 @@ function AccountSection() {
 
 export function MoreMenu({ open, onClose, activeTab, setActiveTab }: MoreMenuProps) {
   return (
-    <Sheet open={open} title="More" onClose={onClose}>
+    <Sheet open={open} title="More" onClose={onClose} fullScreen>
       <div className="flex flex-col gap-2.5">
         <span className="text-xs text-muted">Pages</span>
         <div className="overflow-hidden rounded-xl border border-line bg-surface">

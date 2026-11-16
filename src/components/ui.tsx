@@ -29,7 +29,8 @@ export function Section({
   children,
 }: {
   title: string;
-  action?: { label: string; onClick: () => void };
+  /** Link on the heading line; `underline` marks it clearly as tappable. */
+  action?: { label: string; onClick: () => void; underline?: boolean };
   aside?: React.ReactNode;
   /** Small control on the heading line, e.g. a ScopeToggle. */
   control?: React.ReactNode;
@@ -39,7 +40,11 @@ export function Section({
     <section className="flex flex-col gap-2.5">
       <div className={`flex justify-between gap-3 ${control ? 'items-center' : 'items-baseline'}`}>
         <h2 className="m-0 text-[15px] font-semibold">{title}</h2>
-        {action && <TextButton onClick={action.onClick}>{action.label}</TextButton>}
+        {action && (
+          <TextButton onClick={action.onClick} className={action.underline ? 'underline underline-offset-[3px]' : ''}>
+            {action.label}
+          </TextButton>
+        )}
         {aside && <span className="text-xs text-muted">{aside}</span>}
         {control}
       </div>
