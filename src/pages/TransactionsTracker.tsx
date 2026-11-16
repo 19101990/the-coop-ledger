@@ -6,6 +6,7 @@ import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
 import type { TransactionCategory, TransactionEntry } from '../types/types';
+import PageContainer from '../components/PageContainer';
 
 export default function TransactionsTracker() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
@@ -249,7 +250,7 @@ export default function TransactionsTracker() {
   const profit = summaryData.income - summaryData.expense;
 
   return (
-    <div className="w-full max-w-lg mx-auto p-4 animate-fade-in space-y-6">
+    <PageContainer>
       
       {/* SUMMARY SECTION */}
       <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
@@ -417,6 +418,6 @@ export default function TransactionsTracker() {
         )}
       </div>
 
-    </div>
+    </PageContainer>
   );
 }

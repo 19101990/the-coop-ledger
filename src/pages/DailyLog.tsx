@@ -7,6 +7,7 @@ import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
 import SectionHeader from '../components/SectionHeader';
 import CounterControl from '../components/CounterControl';
+import PageContainer from '../components/PageContainer';
 
 export default function DailyLog() {
   const getTodayString = (): string => {
@@ -351,7 +352,7 @@ export default function DailyLog() {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto p-2 sm:p-4 animate-fade-in">
+    <PageContainer>
       <div className="flex flex-col gap-6">
         <div className="w-full bg-white p-5 rounded-2xl border border-stone-200 shadow-xs">
           <div className="flex justify-between items-center">
@@ -512,6 +513,6 @@ export default function DailyLog() {
           )}
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }
