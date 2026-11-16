@@ -4,6 +4,7 @@ import { useDemo } from '../context/DemoContext';
 import { supabase } from '../supabaseClient';
 import { demoStore } from '../demo/demoStore';
 import Sheet from './Sheet';
+import { Chevron } from './ui';
 import { TAB_TITLES, NAV_LABELS, BOTTOM_TABS_LEFT, BOTTOM_TABS_RIGHT, MENU_TABS } from './navigationConfig';
 
 // ---------- Header ----------
@@ -24,42 +25,49 @@ interface HeaderProps {
 
 function MonthSwitcher({ label, onPrev, onNext, nextDisabled }: MonthSwitcherProps) {
   const arrow =
-    'h-8 w-8 cursor-pointer rounded-md bg-transparent text-base text-muted hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent';
+    'grid h-8 w-8 cursor-pointer place-items-center rounded-md bg-transparent text-muted hover:bg-subtle hover:text-ink disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent';
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-edge bg-surface p-0.5">
-      <button type="button" onClick={onPrev} aria-label="Previous month" className={arrow}>‹</button>
+      <button type="button" onClick={onPrev} aria-label="Previous month" className={arrow}>
+        <Chevron className="rotate-90" />
+      </button>
       <span className="min-w-16 text-center font-mono text-xs">{label}</span>
-      <button type="button" onClick={onNext} disabled={nextDisabled} aria-label="Next month" className={arrow}>›</button>
+      <button type="button" onClick={onNext} disabled={nextDisabled} aria-label="Next month" className={arrow}>
+        <Chevron className="-rotate-90" />
+      </button>
     </div>
   );
 }
 
-export function Header({ title, onOpenMenu, month }: HeaderProps) {
+/** Demo / Admin badge, shown in the menu's Data section. */
+function ModeBadge() {
   const { isDemo } = useDemo();
-
   return (
-    <header className="sticky top-0 z-[5] flex items-end justify-between gap-3 border-b border-line bg-app px-5 pt-[18px] pb-3">
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.08em] text-muted">
-          Brandeshof Coop
-          {isDemo && (
-            <span className="rounded bg-gift-bg px-1.5 py-px text-[10px] text-gift">Demo</span>
-          )}
-        </span>
-        <h1 className="m-0 truncate text-2xl font-semibold tracking-[-.02em]">{title}</h1>
-      </div>
+    <span
+      className={`rounded-md px-2 py-1 font-mono text-[10px] leading-none font-medium tracking-[.1em] uppercase ${
+        isDemo ? 'bg-gift-bg text-gift' : 'bg-income-bg text-income'
+      }`}
+    >
+      {isDemo ? 'Demo' : 'Admin'}
+    </span>
+  );
+}
+
+export function Header({ title, onOpenMenu, month }: HeaderProps) {
+  return (
+    <header className="sticky top-0 z-[5] flex items-center justify-between gap-3 border-b border-line bg-app px-5 py-3.5">
+      <h1 className="m-0 min-w-0 truncate text-2xl font-semibold tracking-[-.02em]">{title}</h1>
 
       <div className="flex flex-none items-center gap-2">
         {month && <MonthSwitcher {...month} />}
         <button
           onClick={onOpenMenu}
           aria-label="Open menu"
-          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-muted hover:bg-subtle hover:text-ink"
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-lg border border-edge bg-surface text-ink hover:bg-subtle"
         >
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-            <circle cx="3" cy="8" r="1.5" />
-            <circle cx="8" cy="8" r="1.5" />
-            <circle cx="13" cy="8" r="1.5" />
+          {/* Menu icon (three lines) — reads as "more pages & settings" better than "⋯". */}
+          <svg className="h-[18px] w-[18px]" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" aria-hidden="true">
+            <path d="M3 5h12M3 9h12M3 13h12" />
           </svg>
         </button>
       </div>
@@ -164,8 +172,12 @@ function AccountSection() {
       <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-sm font-medium">{isDemo ? 'Demo sandbox' : 'Live database'}</span>
-            <span className="truncate text-xs text-muted">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <ModeBadge />
+              {isDemo ? 'Demo sandbox' : 'Live database'}
+            </span>
+            {/* Wrap rather than cut off; overflow-wrap:anywhere also breaks long email addresses. */}
+            <span className="text-xs text-muted [overflow-wrap:anywhere]">
               {isDemo ? 'Sample data only — nothing is saved to the farm records.' : `Signed in as ${user?.email ?? 'admin'}`}
             </span>
           </div>
