@@ -40,8 +40,15 @@ export default function Sheet({ open, title, onClose, children }: SheetProps) {
         <span className="h-1 w-9 self-center rounded-sm bg-edge" />
         <div className="flex items-center gap-2">
           <h2 className="m-0 flex-1 text-lg font-semibold">{title}</h2>
-          <button onClick={onClose} className="cursor-pointer py-2 text-sm text-muted hover:text-ink">
-            Cancel
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-2 grid h-10 w-10 cursor-pointer place-items-center rounded-lg text-muted hover:bg-subtle hover:text-ink"
+          >
+            <svg viewBox="0 0 20 20" width={20} height={20} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true">
+              <path d="M5 5l10 10M15 5L5 15" />
+            </svg>
           </button>
         </div>
         {children}

@@ -233,7 +233,7 @@ export function MoreMenu({ open, onClose, activeTab, setActiveTab }: MoreMenuPro
               className={`flex h-12 w-full cursor-pointer items-center justify-between px-3.5 text-left text-sm hover:bg-app ${i ? 'border-t border-divider' : ''} ${activeTab === id ? 'font-semibold' : ''}`}
             >
               {TAB_TITLES[id]}
-              <span className="text-muted">›</span>
+              <Chevron size={20} className="-rotate-90 text-muted" />
             </button>
           ))}
         </div>

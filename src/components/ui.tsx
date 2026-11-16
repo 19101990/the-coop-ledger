@@ -238,17 +238,19 @@ export function Select({
  * Line chevron pointing down ("v" from a ">" turned 90°). Pass `className` for colour and
  * e.g. `group-open:rotate-180` to flip it when a <details> opens.
  */
-export function Chevron({ className = '' }: { className?: string }) {
+export function Chevron({ className = '', size = 16 }: { className?: string; size?: number }) {
   return (
     <svg
       viewBox="0 0 16 16"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
       strokeWidth={1.75}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      className={`h-4 w-4 flex-none transition-transform ${className}`}
+      className={`flex-none transition-transform ${className}`}
     >
       <path d="M4 6l4 4 4-4" />
     </svg>
