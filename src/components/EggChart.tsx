@@ -51,8 +51,7 @@ export default function EggChart({ series }: { series: EggSeries }) {
             <span className="font-sans font-medium">{buckets[active].title}</span> · {valueText(active)}
           </span>
         ) : series.loggedDays ? (
-          <span className="flex items-center gap-2 text-muted">
-            <span className="w-3 border-t border-dashed border-muted" aria-hidden="true" />
+          <span className="text-muted">
             avg {num.format(avg)} / day · {series.total} eggs · {series.loggedDays} day{series.loggedDays === 1 ? '' : 's'} logged
           </span>
         ) : (
