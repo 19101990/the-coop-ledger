@@ -55,7 +55,9 @@ export default function DailyLog({ onEdit }: DailyLogProps) {
       const data = await loadLogs(fromIndex, toIndex);
 
       if (data) {
-        if (clearAndFetchFirstPage) {
+        // The first page always replaces the list. Appending it could show every entry
+        // twice when the initial load runs more than once (React dev mode runs effects twice).
+        if (clearAndFetchFirstPage || pageNumber === 0) {
           setLogsSummary(data);
           setHasMore(data.length === ITEMS_PER_PAGE);
         } else {

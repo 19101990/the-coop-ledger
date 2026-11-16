@@ -60,7 +60,9 @@ function AppContent() {
 
       {/* Don't render any page until we know whether the user is signed in, and remount
           everything when the mode changes so live data never lingers after sign-out. */}
-      <main key={`${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="p-5">
+      {/* Keys must be unique among siblings (main vs. the sheet below), otherwise React can
+          leave the old page in the DOM — that showed stale demo data on every tab after login. */}
+      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="p-5">
         {!authReady ? (
           <LoadingSpinner message="Loading..." size="md" />
         ) : (
@@ -79,7 +81,7 @@ function AppContent() {
 
       {authReady && (
         <DailyLogSheet
-          key={`${isDemo ? 'demo' : 'live'}-${logSheet.key}`}
+          key={`log-sheet-${isDemo ? 'demo' : 'live'}-${logSheet.key}`}
           open={logSheet.open}
           editingLog={logSheet.editing}
           onClose={closeLogSheet}
