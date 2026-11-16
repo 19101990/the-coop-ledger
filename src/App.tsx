@@ -69,7 +69,7 @@ function AppContent() {
           <>
             {activeTab === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
             {activeTab === 'sales' && <SalesTracker />}
-            {activeTab === 'eggs' && <DailyLog onEdit={(log) => openLogSheet(log)} />}
+            {activeTab === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
             {activeTab === 'transactions' && <TransactionsTracker />}
             {activeTab === 'flock' && <FlockManager />}
             {activeTab === 'reports' && <Reports />}

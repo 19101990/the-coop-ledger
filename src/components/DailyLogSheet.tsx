@@ -124,11 +124,6 @@ export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: Da
       <div className="flex flex-col gap-4">
         <DateSelector value={date} onChange={setDate} label="Date collected" />
 
-        <div className="flex items-baseline justify-between border-b border-ink pb-2">
-          <span className="text-[13px] text-muted">Total collected</span>
-          <span className="font-mono text-[40px] font-medium tracking-[-.03em] tabular-nums">{total}</span>
-        </div>
-
         <Card padded={false}>
           {EGG_VARIETIES.map((v) => (
             <CounterControl
@@ -165,6 +160,14 @@ export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: Da
           onChange={(e) => setNotes(e.target.value)}
           className="h-11 w-full rounded-lg border border-edge bg-surface px-3 text-[15px] text-ink outline-none focus:border-ink"
         />
+
+        {/* Just information: a quiet line above the save button. */}
+        <div className="flex items-baseline justify-between px-0.5 text-[13px] text-muted">
+          <span>Total collected</span>
+          <span className="font-mono text-[15px] font-medium text-ink tabular-nums">
+            {total} <span className="font-sans text-[13px] font-normal text-muted">egg{total === 1 ? '' : 's'}</span>
+          </span>
+        </div>
 
         <PrimaryButton onClick={handleSave} disabled={total <= 0 || saving}>
           {saving ? 'Saving…' : editingLog ? 'Update daily log' : 'Save daily log'}

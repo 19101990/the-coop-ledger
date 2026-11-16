@@ -5,18 +5,21 @@ import { useDemo } from '../context/DemoContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageContainer from '../components/PageContainer';
+import EggsSummary from '../components/EggsSummary';
 import { Card, EmptyState, Section, TextButton } from '../components/ui';
 import { rowDivider } from '../components/uiStyles';
 import { formatWeekdayDate } from '../utils/format';
 import { EGG_SWATCHES, EGG_VARIETIES, eggVarietyLabel, logTotal } from '../utils/eggs';
 
 interface DailyLogProps {
+  /** Open the daily log sheet for a new entry (same as the bottom-bar "+"). */
+  onAdd: () => void;
   /** Open the daily log sheet pre-filled with this entry. */
   onEdit: (log: DBLogEntry) => void;
 }
 
-/** Eggs tab: history of daily log entries. New entries are made from the "+" sheet. */
-export default function DailyLog({ onEdit }: DailyLogProps) {
+/** Eggs tab: today's count, laying chart and the history of daily log entries. */
+export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
   const [logsSummary, setLogsSummary] = useState<DBLogEntry[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -143,6 +146,8 @@ export default function DailyLog({ onEdit }: DailyLogProps) {
 
   return (
     <PageContainer>
+      <EggsSummary onAdd={onAdd} />
+
       <Section title="History">
         <Card padded={false}>
           {logsSummary.length === 0 && !isLoadingHistory ? (
