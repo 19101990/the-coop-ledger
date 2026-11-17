@@ -34,9 +34,26 @@
   --color-gift-bg: oklch(0.94 0.07 90);
   --color-income-on-dark: oklch(0.72 0.11 155);
   --color-expense-on-dark: oklch(0.62 0.11 30);
+
+  /* Screen slide-in after a swipe between tabs */
+  --animate-slide-from-right: slide-from-right 180ms ease-out;
+  --animate-slide-from-left: slide-from-left 180ms ease-out;
+
+  @keyframes slide-from-right {
+    from { opacity: 0; transform: translateX(32px); }
+  }
+  @keyframes slide-from-left {
+    from { opacity: 0; transform: translateX(-32px); }
+  }
 }
 
 @layer base {
+  /* Sideways swipes switch tabs; stop the browser treating them as back/forward navigation. */
+  html,
+  body {
+    overscroll-behavior-x: none;
+  }
+
   body {
     @apply bg-page text-ink font-sans antialiased;
   }

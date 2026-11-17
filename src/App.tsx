@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Header, BottomNav, MoreMenu } from './components/Navigation';
-import { TAB_TITLES } from './components/navigationConfig';
+import { SWIPE_TABS, TAB_TITLES } from './components/navigationConfig';
+import { useHorizontalSwipe } from './hooks/useHorizontalSwipe';
 import DailyLogSheet from './components/DailyLogSheet';
 import Overview from './pages/Overview';
 import DailyLog from './pages/DailyLog';
@@ -29,10 +30,26 @@ function AppContent() {
   const [dataVersion, setDataVersion] = useState(0);
   const { isDemo, authReady } = useDemo();
 
-  const goTo = (tab: Tab) => {
+  // Set only by a swipe, so tapping the bottom bar switches screens without animation.
+  const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
+
+  const goTo = (tab: Tab, from: 'left' | 'right' | null = null) => {
     setActiveTab(tab);
+    setSlideFrom(from);
     window.scrollTo({ top: 0 });
   };
+
+  // Swipe between the bottom bar tabs; stops at either end. Flock/Reports (More menu) don't swipe.
+  const swipeBy = (step: 1 | -1) => {
+    const i = SWIPE_TABS.indexOf(activeTab);
+    const next = SWIPE_TABS[i + step];
+    if (i === -1 || !next) return;
+    goTo(next, step === 1 ? 'right' : 'left');
+  };
+  const swipeHandlers = useHorizontalSwipe({
+    onSwipeLeft: () => swipeBy(1),
+    onSwipeRight: () => swipeBy(-1),
+  });
 
   const openLogSheet = (editing: DBLogEntry | null = null) =>
     setLogSheet((s) => ({ open: true, editing, key: s.key + 1 }));
@@ -62,18 +79,28 @@ function AppContent() {
           everything when the mode changes so live data never lingers after sign-out. */}
       {/* Keys must be unique among siblings (main vs. the sheet below), otherwise React can
           leave the old page in the DOM — that showed stale demo data on every tab after login. */}
-      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="p-5">
+      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="overflow-x-clip p-5" {...swipeHandlers}>
         {!authReady ? (
           <LoadingSpinner message="Loading..." size="md" />
         ) : (
-          <>
+          // Keyed by tab so the slide-in replays on every swipe.
+          <div
+            key={activeTab}
+            className={
+              slideFrom === 'right'
+                ? 'motion-safe:animate-slide-from-right'
+                : slideFrom === 'left'
+                  ? 'motion-safe:animate-slide-from-left'
+                  : undefined
+            }
+          >
             {activeTab === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
             {activeTab === 'sales' && <SalesTracker />}
             {activeTab === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
             {activeTab === 'transactions' && <TransactionsTracker />}
             {activeTab === 'flock' && <FlockManager />}
             {activeTab === 'reports' && <Reports />}
-          </>
+          </div>
         )}
       </main>
 
