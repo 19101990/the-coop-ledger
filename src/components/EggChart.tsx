@@ -44,8 +44,9 @@ export default function EggChart({ series }: { series: EggSeries }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Readout */}
-      <div className="flex min-h-4 items-center gap-2 font-mono text-xs" aria-live="polite">
+      {/* Readout. Always two lines tall (the summary wraps on narrow phones, a tapped bar usually
+          doesn't), so the chart below doesn't jump when switching between them. */}
+      <div className="flex min-h-8 items-start gap-2 font-mono text-xs" aria-live="polite">
         {active !== null ? (
           <span className="text-ink">
             <span className="font-sans font-medium">{buckets[active].title}</span> · {valueText(active)}
