@@ -18,6 +18,9 @@ import { DemoProvider, useDemo } from './context/DemoContext';
 import { RefreshProvider, useRefresh } from './context/RefreshContext';
 import { currentYearMonth, formatMonthShort, isSameMonth, shiftMonth, type YearMonth } from './utils/format';
 
+/** Build the hidden screens this long after opening if the app hasn't been touched yet. */
+const WARMUP_DELAY_MS = 5000;
+
 interface LogSheetState {
   open: boolean;
   editing: DBLogEntry | null;
@@ -42,26 +45,38 @@ function AppContent() {
   const [mountedTabs, setMountedTabs] = useState<ReadonlySet<Tab>>(() => new Set([activeTab]));
   const mountTab = (tab: Tab) => setMountedTabs((s) => (s.has(tab) ? s : new Set(s).add(tab)));
 
+  // The hidden screens aren't built during page load: building them (even hidden) counts as the page
+  // still changing in mobile PageSpeed's Speed Index estimate. Building starts at the first touch,
+  // tap, key or scroll — the start of a swipe is early enough — or after WARMUP_DELAY_MS untouched.
+  const [warmupStarted, setWarmupStarted] = useState(false);
   useEffect(() => {
-    if (!authReady) return;
+    if (warmupStarted) return;
+    const start = () => setWarmupStarted(true);
+    const events = ['pointerdown', 'touchstart', 'keydown', 'wheel'] as const;
+    events.forEach((e) => window.addEventListener(e, start, { passive: true, capture: true }));
+    const timer = window.setTimeout(start, WARMUP_DELAY_MS);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, start, { capture: true }));
+      window.clearTimeout(timer);
+    };
+  }, [warmupStarted]);
+
+  useEffect(() => {
+    if (!authReady || !warmupStarted) return;
     const next = SWIPE_TABS.find((t) => !mountedTabs.has(t));
     if (!next) return;
 
-    // Give the first screen a moment to load its data before starting, then go one at a time.
-    // Safari has no requestIdleCallback, so it falls back to a short timeout.
+    // One screen per idle moment. Safari has no requestIdleCallback, so it falls back to a short timeout.
     let idleHandle: number | undefined;
-    const timer = window.setTimeout(
-      () => {
-        const whenIdle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 50));
-        idleHandle = whenIdle(() => mountTab(next), { timeout: 1000 });
-      },
-      mountedTabs.size === 1 ? 400 : 50
-    );
+    const timer = window.setTimeout(() => {
+      const whenIdle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 50));
+      idleHandle = whenIdle(() => mountTab(next), { timeout: 1000 });
+    }, 50);
     return () => {
       window.clearTimeout(timer);
       if (idleHandle !== undefined) (window.cancelIdleCallback ?? window.clearTimeout)(idleHandle);
     };
-  }, [authReady, mountedTabs]);
+  }, [authReady, warmupStarted, mountedTabs]);
 
   // Each screen remembers how far down you were.
   const scrollPositions = useRef<Partial<Record<Tab, number>>>({});
