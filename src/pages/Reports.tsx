@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageContainer from '../components/PageContainer';
@@ -34,7 +35,9 @@ interface YearlyReportRow {
 
 export default function Reports() {
   const { isDemo } = useDemo();
+  const { refreshKey } = useRefresh();
   const [yearlyReport, setYearlyReport] = useState<YearlyReportRow[]>([]);
+  // Only the first load shows the spinner; refreshes keep the current table until the new one is ready.
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,8 +77,6 @@ export default function Reports() {
 
     async function buildYearlyReport() {
       try {
-        setLoading(true);
-
         const { legacyData, liveLogs, liveSales, liveTransactions } = await loadSourceData();
 
         const liveYearGroups: Record<number, { collected: number; sold: number; revenue: number }> = {};
@@ -145,7 +146,7 @@ export default function Reports() {
     }
 
     buildYearlyReport();
-  }, [isDemo]);
+  }, [isDemo, refreshKey]);
 
   const nf = new Intl.NumberFormat('nl-NL', { useGrouping: false });
 

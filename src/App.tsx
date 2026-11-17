@@ -12,6 +12,7 @@ import TransactionsTracker from './pages/TransactionsTracker';
 import LoadingSpinner from './components/LoadingSpinner';
 import type { DBLogEntry, Tab } from './types/types';
 import { DemoProvider, useDemo } from './context/DemoContext';
+import { RefreshProvider, useRefresh } from './context/RefreshContext';
 import { currentYearMonth, formatMonthShort, isSameMonth, shiftMonth, type YearMonth } from './utils/format';
 
 interface LogSheetState {
@@ -26,9 +27,8 @@ function AppContent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [month, setMonth] = useState<YearMonth>(currentYearMonth);
   const [logSheet, setLogSheet] = useState<LogSheetState>({ open: false, editing: null, key: 0 });
-  // Bumped after the log sheet saves, to reload whatever screen is showing.
-  const [dataVersion, setDataVersion] = useState(0);
   const { isDemo, authReady } = useDemo();
+  const { notifyDataChanged } = useRefresh();
 
   // Set only by a swipe, so tapping the bottom bar switches screens without animation.
   const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
@@ -94,7 +94,7 @@ function AppContent() {
           everything when the mode changes so live data never lingers after sign-out. */}
       {/* Keys must be unique among siblings (main vs. the sheet below), otherwise React can
           leave the old page in the DOM — that showed stale demo data on every tab after login. */}
-      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="flex-1 overflow-x-clip p-5" {...swipeHandlers}>
+      <main key={`page-${isDemo ? 'demo' : 'live'}`} className="flex-1 overflow-x-clip p-5" {...swipeHandlers}>
         {/* flex-1: fills down to the bottom bar, so short pages can be swiped on their empty space too. */}
         {!authReady ? (
           <LoadingSpinner message="Loading..." size="md" />
@@ -139,7 +139,7 @@ function AppContent() {
           onClose={closeLogSheet}
           onSaved={() => {
             closeLogSheet();
-            setDataVersion((v) => v + 1);
+            notifyDataChanged();
           }}
         />
       )}
@@ -152,7 +152,9 @@ function AppContent() {
 function App() {
   return (
     <DemoProvider>
-      <AppContent />
+      <RefreshProvider>
+        <AppContent />
+      </RefreshProvider>
     </DemoProvider>
   );
 }

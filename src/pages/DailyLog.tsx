@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { DBLogEntry } from '../types/types';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from '../components/LoadingSpinner';
 import PageContainer from '../components/PageContainer';
@@ -28,6 +29,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const { isDemo, triggerDemoToast } = useDemo();
+  const { refreshKey, notifyDataChanged } = useRefresh();
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
   const ITEMS_PER_PAGE = 10;
@@ -79,29 +81,32 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
     }
   };
 
-  const refreshLogHistory = async () => {
-    setPage(0);
-    setHasMore(true);
-    setLogsSummary([]);
-    setIsLoadingHistory(true);
-
-    try {
-      const data = await loadLogs(0, ITEMS_PER_PAGE - 1);
-
-      if (data) {
-        setLogsSummary(data);
-        setHasMore(data.length === ITEMS_PER_PAGE);
-      }
-    } catch (err) {
-      console.error('Error refreshing log history:', err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
-
   useEffect(() => {
     fetchLogHistory(page);
   }, [page]);
+
+  // Quiet refresh: reload as many rows as are already shown and swap them in place, so the list
+  // doesn't flash or shrink. Same row count keeps the next "load more" page lined up.
+  const lastRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (lastRefreshKey.current === refreshKey) return;
+    lastRefreshKey.current = refreshKey;
+
+    const count = Math.max(logsSummary.length, ITEMS_PER_PAGE);
+    let cancelled = false;
+    loadLogs(0, count - 1)
+      .then((data) => {
+        if (cancelled || !data) return;
+        setLogsSummary(data);
+        setHasMore(data.length === count);
+      })
+      .catch((err) => console.error('Error refreshing log history:', err));
+    return () => {
+      cancelled = true;
+    };
+    // Runs only when a refresh is requested; reads the list length at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   useEffect(() => {
     const currentElement = observerTarget.current;
@@ -126,7 +131,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
     if (isDemo) {
       demoStore.deleteDailyLog(id);
       triggerDemoToast('Demo: daily log deleted from the sandbox');
-      await refreshLogHistory();
+      notifyDataChanged();
       return;
     }
 
@@ -139,7 +144,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
       if (error) throw error;
 
       triggerDemoToast('Daily log deleted');
-      await refreshLogHistory();
+      notifyDataChanged();
     } catch (err) {
       console.error('Unexpected deletion error:', err);
       alert(`Deletion failed: ${err instanceof Error ? err.message : String(err)}`);

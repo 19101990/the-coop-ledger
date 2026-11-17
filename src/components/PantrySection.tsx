@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import LoadingSpinner from './LoadingSpinner';
 import FormInput from './FormInput';
@@ -10,6 +11,7 @@ import { PrimaryButton, Section } from './ui';
 /** Pantry stock strip with an Adjust sheet (shown on the Overview tab). */
 export default function PantrySection() {
   const { isDemo } = useDemo();
+  const { refreshKey } = useRefresh();
 
   const [boxesForSale, setBoxesForSale] = useState(0);
   const [boxesPersonal, setBoxesPersonal] = useState(0);
@@ -28,10 +30,6 @@ export default function PantrySection() {
       setBoxesForSale(data.boxes_for_sale);
       setBoxesPersonal(data.boxes_personal);
       setLooseEggs(data.loose_eggs);
-
-      setEditForSale(data.boxes_for_sale);
-      setEditPersonal(data.boxes_personal);
-      setEditLoose(data.loose_eggs);
     };
 
     const fetchInventory = async () => {
@@ -42,8 +40,8 @@ export default function PantrySection() {
         return;
       }
 
+      // `loading` starts true and is only cleared, so refreshes keep the current numbers on screen.
       try {
-        setLoading(true);
         const { data, error } = await supabase
           .from('pantry_inventory')
           .select('*')
@@ -61,7 +59,15 @@ export default function PantrySection() {
     };
 
     fetchInventory();
-  }, [isDemo]);
+  }, [isDemo, refreshKey]);
+
+  // Start the Adjust form from the current stock each time it opens.
+  const openAdjust = () => {
+    setEditForSale(boxesForSale);
+    setEditPersonal(boxesPersonal);
+    setEditLoose(looseEggs);
+    setIsOpen(true);
+  };
 
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +135,7 @@ export default function PantrySection() {
 
   return (
     <>
-      <Section title="Pantry" action={{ label: 'Adjust', onClick: () => setIsOpen(true), underline: true }}>
+      <Section title="Pantry" action={{ label: 'Adjust', onClick: openAdjust, underline: true }}>
         <div className="grid grid-cols-3 rounded-xl border border-line bg-surface">
           {cells.map((c, i) => (
             <div key={c.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>

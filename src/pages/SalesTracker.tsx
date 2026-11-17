@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { supabase } from '../supabaseClient';
 import type { SaleEntry } from '../types/types';
 import DateSelector from '../components/DateSelector';
@@ -50,9 +51,9 @@ export default function SalesTracker() {
   const [saleDate, setSaleDate] = useState(getTodayString());
 
   const [salesLog, setSalesLog] = useState<SaleEntry[]>([]);
-  // Sale open in the edit sheet; bump salesVersion to reload the list after an edit/delete.
+  // Sale open in the edit sheet. The recent sales list reloads quietly after any save or delete.
   const [editingSale, setEditingSale] = useState<SaleEntry | null>(null);
-  const [salesVersion, setSalesVersion] = useState(0);
+  const { refreshKey, notifyDataChanged } = useRefresh();
 
   useEffect(() => {
     const applyCustomers = (names: string[]) => {
@@ -180,7 +181,7 @@ export default function SalesTracker() {
     };
 
     fetchRecentSales();
-  }, [isDemo, salesVersion]);
+  }, [isDemo, refreshKey]);
 
   // Pantry stock change for a sale (shared with editing/deleting sales).
   const deductFromPantry = takeFromPantry;
@@ -237,6 +238,7 @@ export default function SalesTracker() {
       setSalesLog(demoStore.getRecentSales(10).map(toSaleEntry));
       triggerDemoToast("Demo Mode: Sale saved to the sandbox!");
       resetSaleForm();
+      notifyDataChanged();
       return;
     }
 
@@ -307,6 +309,8 @@ export default function SalesTracker() {
       }
 
       resetSaleForm();
+      // Pantry, ledger, overview and reports all change with a sale.
+      notifyDataChanged();
     } catch (err: any) {
       console.error('Unexpected error tracking transaction:', err);
       alert(`Transaction Failed: ${err.message}`);
@@ -474,7 +478,7 @@ export default function SalesTracker() {
         onClose={() => setEditingSale(null)}
         onChanged={() => {
           setEditingSale(null);
-          setSalesVersion((v) => v + 1);
+          notifyDataChanged();
         }}
       />
     </PageContainer>

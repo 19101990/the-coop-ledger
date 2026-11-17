@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { TransactionEntry } from '../types/types';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import PageContainer from '../components/PageContainer';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -75,6 +76,7 @@ const CUSTOMERS_COLLAPSED = 5;
 
 export default function Overview({ month, onViewLedger }: OverviewProps) {
   const { isDemo } = useDemo();
+  const { refreshKey } = useRefresh();
   const monthKey = `${month.year}-${month.month}`;
 
   // Data is tagged with the month it belongs to, so a stale response never shows under a new month.
@@ -97,9 +99,9 @@ export default function Overview({ month, onViewLedger }: OverviewProps) {
     return () => {
       cancelled = true;
     };
-    // `month` is fully described by monthKey.
+    // `month` is fully described by monthKey. A refresh keeps the current month's data on screen meanwhile.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo, monthKey]);
+  }, [isDemo, monthKey, refreshKey]);
 
   const data = loaded?.key === monthKey ? loaded.data : null;
   const monthName = formatMonthLong(month);
@@ -171,6 +173,7 @@ const scopeOptions = (monthName: string) => [
  */
 function useAllTime<T>(load: (isDemo: boolean) => Promise<T[]>, what: string) {
   const { isDemo } = useDemo();
+  const { refreshKey } = useRefresh();
   const [rows, setRows] = useState<T[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -185,9 +188,9 @@ function useAllTime<T>(load: (isDemo: boolean) => Promise<T[]>, what: string) {
     return () => {
       cancelled = true;
     };
-    // `load` is a module-level function; only the mode matters.
+    // `load` is a module-level function; only the mode and refreshes matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDemo]);
+  }, [isDemo, refreshKey]);
 
   return { rows, failed };
 }

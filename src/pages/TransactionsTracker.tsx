@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -62,10 +63,10 @@ export default function TransactionsTracker() {
 
   const [categories, setCategories] = useState<TransactionCategory[]>([]);
 
-  // All transactions; reloaded after a save or delete by bumping `version`.
+  // All transactions; reloaded quietly after a save or delete anywhere in the app.
   const [allRows, setAllRows] = useState<TransactionEntry[] | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [version, setVersion] = useState(0);
+  const { refreshKey, notifyDataChanged } = useRefresh();
 
   // Summary + filters
   const [summaryTimeframe, setSummaryTimeframe] = useState<Timeframe>('all');
@@ -116,7 +117,7 @@ export default function TransactionsTracker() {
     return () => {
       cancelled = true;
     };
-  }, [isDemo, version]);
+  }, [isDemo, refreshKey]);
 
   // ---------- Derived data ----------
 
@@ -186,7 +187,7 @@ export default function TransactionsTracker() {
       triggerDemoToast(`Demo: ${transactionType} saved to the sandbox`);
       setAmount('');
       setDescription('');
-      setVersion((v) => v + 1);
+      notifyDataChanged();
       setIsSubmitting(false);
       return;
     }
@@ -198,7 +199,7 @@ export default function TransactionsTracker() {
       triggerDemoToast(`${transactionType === 'income' ? 'Income' : 'Expense'} saved`);
       setAmount('');
       setDescription('');
-      setVersion((v) => v + 1);
+      notifyDataChanged();
     } catch (err) {
       console.error("Error saving tx:", err);
       alert(`Saving failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -214,7 +215,7 @@ export default function TransactionsTracker() {
       demoStore.deleteTransaction(id);
       triggerDemoToast('Demo: transaction deleted from the sandbox');
       closeDetails();
-      setVersion((v) => v + 1);
+      notifyDataChanged();
       return;
     }
 
@@ -223,7 +224,7 @@ export default function TransactionsTracker() {
       if (error) throw error;
       triggerDemoToast('Transaction deleted');
       closeDetails();
-      setVersion((v) => v + 1);
+      notifyDataChanged();
     } catch (err) {
       alert(`Deletion failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -391,7 +392,7 @@ export default function TransactionsTracker() {
             onCancel={() => setEditingSelected(false)}
             onSaved={() => {
               closeDetails();
-              setVersion((v) => v + 1);
+              notifyDataChanged();
             }}
           />
         )}

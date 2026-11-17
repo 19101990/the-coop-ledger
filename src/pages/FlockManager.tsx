@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import DateSelector from '../components/DateSelector';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -12,6 +13,7 @@ import { inputClass, rowDivider, textareaClass } from '../components/uiStyles';
 export default function FlockManager() {
   const getTodayString = (): string => new Date().toISOString().split('T')[0];
   const { isDemo, triggerDemoToast } = useDemo();
+  const { refreshKey } = useRefresh();
 
   // Data State
   const [breeds, setBreeds] = useState<string[]>([]);
@@ -48,8 +50,7 @@ export default function FlockManager() {
         return;
       }
 
-      setIsLoading(true);
-
+      // `isLoading` starts true and is only cleared, so refreshes keep the current list on screen.
       try {
         const [breedsRes, flockRes] = await Promise.all([
           supabase.from('breeds').select('name').order('name'),
@@ -65,7 +66,7 @@ export default function FlockManager() {
       }
     };
     fetchData();
-  }, [isDemo]);
+  }, [isDemo, refreshKey]);
 
   // Actions
   const handleAddBreed = async (e: React.FormEvent) => {
