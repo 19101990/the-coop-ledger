@@ -402,7 +402,7 @@ export default function SalesTracker() {
         <div className="grid grid-cols-2 items-end gap-2.5">
           <Field label="Payment">
             <Segmented
-              options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift (free)' }]}
+              options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift' }]}
               value={paymentStatus}
               onChange={setPaymentStatus}
             />

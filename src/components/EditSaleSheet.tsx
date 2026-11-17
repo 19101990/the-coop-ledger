@@ -101,7 +101,7 @@ export default function EditSaleSheet({ sale, customers, onClose, onChanged }: E
         <div className="grid grid-cols-2 items-end gap-2.5">
           <Field label="Payment">
             <Segmented
-              options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift (free)' }]}
+              options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift' }]}
               value={status}
               onChange={(v) => {
                 setStatus(v);
