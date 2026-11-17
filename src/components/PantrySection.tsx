@@ -3,7 +3,6 @@ import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
 import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
-import LoadingSpinner from './LoadingSpinner';
 import FormInput from './FormInput';
 import Sheet from './Sheet';
 import { PrimaryButton, Section } from './ui';
@@ -118,10 +117,6 @@ export default function PantrySection() {
   const remainingLoose = looseEggs % 10;
 
 
-  if (loading) {
-    return <LoadingSpinner message="Loading pantry…" size="sm" />;
-  }
-
   const numericChange = (setter: (n: number) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val === '' || /^\d+$/.test(val)) setter(val === '' ? 0 : Number(val));
@@ -135,13 +130,14 @@ export default function PantrySection() {
 
   return (
     <>
-      <Section title="Pantry" action={{ label: 'Adjust', onClick: openAdjust, underline: true }}>
-        <div className="grid grid-cols-3 rounded-xl border border-line bg-surface">
+      {/* While loading, the same card shows dashes instead of a spinner, so the page below doesn't jump. */}
+      <Section title="Pantry" action={{ label: 'Adjust', onClick: () => !loading && openAdjust(), underline: true }}>
+        <div className="grid grid-cols-3 rounded-xl border border-line bg-surface" aria-busy={loading}>
           {cells.map((c, i) => (
             <div key={c.label} className={`flex flex-col gap-1 p-3.5 ${i ? 'border-l border-line' : ''}`}>
               <span className="text-[11px] text-muted">{c.label}</span>
               <span className="flex items-baseline gap-1">
-                <span className="font-mono text-2xl font-medium tracking-[-.02em] tabular-nums">{c.n}</span>
+                <span className="font-mono text-2xl font-medium tracking-[-.02em] tabular-nums">{loading ? '–' : c.n}</span>
                 <span className="text-[11px] text-muted">{c.unit}</span>
               </span>
             </div>

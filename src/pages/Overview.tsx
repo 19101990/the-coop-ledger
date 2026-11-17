@@ -115,9 +115,13 @@ export default function Overview({ month, onViewLedger }: OverviewProps) {
       )}
 
       {/* Outside the month-loading branch so they stay mounted across month switches:
-          each keeps its month / all-time choice and loads all-time data only once. */}
-      <CategoriesSection monthTransactions={data?.transactions ?? null} monthName={monthName} />
-      <CustomersSection monthSales={data?.sales ?? null} monthName={monthName} />
+          each keeps its month / all-time choice and loads all-time data only once.
+          Hidden until the first month has loaded: otherwise they show first and then get pushed
+          ~600px down when the cards above appear (the main layout shift on mobile PageSpeed). */}
+      <div hidden={!loaded} className="flex flex-col gap-6">
+        <CategoriesSection monthTransactions={data?.transactions ?? null} monthName={monthName} />
+        <CustomersSection monthSales={data?.sales ?? null} monthName={monthName} />
+      </div>
     </PageContainer>
   );
 }

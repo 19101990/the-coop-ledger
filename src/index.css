@@ -2,8 +2,8 @@
 
 /* Design tokens — see design/README.md */
 @theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
   /* Surfaces */
   /* Light neutral greys (no warm tint). Text contrast checked: muted ≥ 4.85:1 on every background. */
