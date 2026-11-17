@@ -1,15 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Header, BottomNav, MoreMenu } from './components/Navigation';
 import { SWIPE_TABS, TAB_TITLES } from './components/navigationConfig';
 import { useHorizontalSwipe } from './hooks/useHorizontalSwipe';
 import DailyLogSheet from './components/DailyLogSheet';
 import Overview from './pages/Overview';
-import DailyLog from './pages/DailyLog';
-import SalesTracker from './pages/SalesTracker';
-import FlockManager from './pages/FlockManager';
-import Reports from './pages/Reports';
-import TransactionsTracker from './pages/TransactionsTracker';
 import LoadingSpinner from './components/LoadingSpinner';
+
+// Overview is the start screen, so it's in the main bundle. The others load as separate files
+// while they're warmed up in the background, keeping startup JavaScript smaller on mobile.
+const DailyLog = lazy(() => import('./pages/DailyLog'));
+const SalesTracker = lazy(() => import('./pages/SalesTracker'));
+const FlockManager = lazy(() => import('./pages/FlockManager'));
+const Reports = lazy(() => import('./pages/Reports'));
+const TransactionsTracker = lazy(() => import('./pages/TransactionsTracker'));
 import type { DBLogEntry, Tab } from './types/types';
 import { DemoProvider, useDemo } from './context/DemoContext';
 import { RefreshProvider, useRefresh } from './context/RefreshContext';
@@ -34,24 +37,50 @@ function AppContent() {
   const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
 
   // Every screen stays mounted (just hidden), so switching back shows it already filled in.
-  // The ones you're not on are built shortly after startup, so the first screen loads on its own.
-  const [warmTabs, setWarmTabs] = useState(false);
+  // Startup builds only the screen you open on; the others follow one per idle moment, so no
+  // single step blocks the main thread for long (all at once was a ~200ms task on mobile).
+  const [mountedTabs, setMountedTabs] = useState<ReadonlySet<Tab>>(() => new Set([activeTab]));
+  const mountTab = (tab: Tab) => setMountedTabs((s) => (s.has(tab) ? s : new Set(s).add(tab)));
+
   useEffect(() => {
     if (!authReady) return;
-    const timer = window.setTimeout(() => setWarmTabs(true), 400);
-    return () => window.clearTimeout(timer);
-  }, [authReady]);
+    const next = SWIPE_TABS.find((t) => !mountedTabs.has(t));
+    if (!next) return;
+
+    // Give the first screen a moment to load its data before starting, then go one at a time.
+    // Safari has no requestIdleCallback, so it falls back to a short timeout.
+    let idleHandle: number | undefined;
+    const timer = window.setTimeout(
+      () => {
+        const whenIdle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 50));
+        idleHandle = whenIdle(() => mountTab(next), { timeout: 1000 });
+      },
+      mountedTabs.size === 1 ? 400 : 50
+    );
+    return () => {
+      window.clearTimeout(timer);
+      if (idleHandle !== undefined) (window.cancelIdleCallback ?? window.clearTimeout)(idleHandle);
+    };
+  }, [authReady, mountedTabs]);
 
   // Each screen remembers how far down you were.
   const scrollPositions = useRef<Partial<Record<Tab, number>>>({});
 
   const goTo = (tab: Tab, from: 'left' | 'right' | null = null) => {
     scrollPositions.current[activeTab] = window.scrollY;
+    mountTab(tab);
     setActiveTab(tab);
     setSlideFrom(from);
   };
 
+  // Skipped on first render: there's nothing to restore yet, and scrollTo forces a full layout
+  // inside the startup task (~140ms of blocking time on a throttled mobile load).
+  const isFirstRender = useRef(true);
   useLayoutEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     window.scrollTo({ top: scrollPositions.current[activeTab] ?? 0 });
   }, [activeTab]);
 
@@ -102,7 +131,7 @@ function AppContent() {
           <>
             {SWIPE_TABS.map((id) => {
               const active = id === activeTab;
-              if (!active && !warmTabs) return null;
+              if (!active && !mountedTabs.has(id)) return null;
               return (
                 // Hidden panels are display:none, so the slide-in restarts each time one is shown again.
                 <div
@@ -116,12 +145,15 @@ function AppContent() {
                         : undefined
                   }
                 >
-                  {id === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
-                  {id === 'sales' && <SalesTracker />}
-                  {id === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
-                  {id === 'transactions' && <TransactionsTracker />}
-                  {id === 'flock' && <FlockManager />}
-                  {id === 'reports' && <Reports />}
+                  {/* One boundary per screen, so a screen whose code is still loading doesn't blank the others. */}
+                  <Suspense fallback={<LoadingSpinner message="Loading..." size="md" />}>
+                    {id === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
+                    {id === 'sales' && <SalesTracker />}
+                    {id === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
+                    {id === 'transactions' && <TransactionsTracker />}
+                    {id === 'flock' && <FlockManager />}
+                    {id === 'reports' && <Reports />}
+                  </Suspense>
                 </div>
               );
             })}
