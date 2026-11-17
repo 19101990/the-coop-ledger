@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useDemo } from '../context/DemoContext';
+import { useRefresh } from '../context/RefreshContext';
 import { demoStore } from '../demo/demoStore';
 import EggChart from './EggChart';
 import LoadingSpinner from './LoadingSpinner';
@@ -65,6 +66,7 @@ async function loadEggsData(isDemo: boolean, today: string): Promise<EggsData> {
 /** Top of the Eggs tab: today's count, the laying chart and this month's figures. */
 export default function EggsSummary({ onAdd }: { onAdd: () => void }) {
   const { isDemo } = useDemo();
+  const { refreshKey } = useRefresh();
   const [data, setData] = useState<EggsData | null>(null);
   const [failed, setFailed] = useState(false);
   const [period, setPeriod] = useState<EggPeriod>('14d');
@@ -81,7 +83,7 @@ export default function EggsSummary({ onAdd }: { onAdd: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [isDemo, today]);
+  }, [isDemo, today, refreshKey]);
 
   if (!data) {
     return <LoadingSpinner message={failed ? 'Could not load egg stats.' : 'Loading egg stats…'} size="sm" />;

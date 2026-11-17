@@ -22,3 +22,6 @@ export const NAV_LABELS: Partial<Record<Tab, string>> = {
 export const BOTTOM_TABS_LEFT: Tab[] = ['overview', 'sales'];
 export const BOTTOM_TABS_RIGHT: Tab[] = ['eggs', 'transactions'];
 export const MENU_TABS: Tab[] = ['flock', 'reports'];
+
+/** Order for swiping between screens: the bottom bar tabs left to right, then the menu pages. */
+export const SWIPE_TABS: Tab[] = [...BOTTOM_TABS_LEFT, ...BOTTOM_TABS_RIGHT, ...MENU_TABS];
