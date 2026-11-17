@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Header, BottomNav, MoreMenu } from './components/Navigation';
 import { SWIPE_TABS, TAB_TITLES } from './components/navigationConfig';
 import { useHorizontalSwipe } from './hooks/useHorizontalSwipe';
@@ -33,17 +33,32 @@ function AppContent() {
   // Set only by a swipe, so tapping the bottom bar switches screens without animation.
   const [slideFrom, setSlideFrom] = useState<'left' | 'right' | null>(null);
 
+  // Every screen stays mounted (just hidden), so switching back shows it already filled in.
+  // The ones you're not on are built shortly after startup, so the first screen loads on its own.
+  const [warmTabs, setWarmTabs] = useState(false);
+  useEffect(() => {
+    if (!authReady) return;
+    const timer = window.setTimeout(() => setWarmTabs(true), 400);
+    return () => window.clearTimeout(timer);
+  }, [authReady]);
+
+  // Each screen remembers how far down you were.
+  const scrollPositions = useRef<Partial<Record<Tab, number>>>({});
+
   const goTo = (tab: Tab, from: 'left' | 'right' | null = null) => {
+    scrollPositions.current[activeTab] = window.scrollY;
     setActiveTab(tab);
     setSlideFrom(from);
-    window.scrollTo({ top: 0 });
   };
 
-  // Swipe between the bottom bar tabs; stops at either end. Flock/Reports (More menu) don't swipe.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: scrollPositions.current[activeTab] ?? 0 });
+  }, [activeTab]);
+
+  // Swipe through every screen in SWIPE_TABS order; stops at either end.
   const swipeBy = (step: 1 | -1) => {
-    const i = SWIPE_TABS.indexOf(activeTab);
-    const next = SWIPE_TABS[i + step];
-    if (i === -1 || !next) return;
+    const next = SWIPE_TABS[SWIPE_TABS.indexOf(activeTab) + step];
+    if (!next) return;
     goTo(next, step === 1 ? 'right' : 'left');
   };
   const swipeHandlers = useHorizontalSwipe({
@@ -59,7 +74,7 @@ function AppContent() {
   const atCurrentMonth = isSameMonth(month, currentYearMonth());
 
   return (
-    <div className="relative mx-auto min-h-screen max-w-[440px] bg-app pb-24 shadow-[0_0_0_1px_var(--color-edge)]">
+    <div className="relative mx-auto flex min-h-screen max-w-[440px] flex-col bg-app pb-24 shadow-[0_0_0_1px_var(--color-edge)]">
       <Header
         title={TAB_TITLES[activeTab]}
         onOpenMenu={() => setIsMenuOpen(true)}
@@ -79,28 +94,38 @@ function AppContent() {
           everything when the mode changes so live data never lingers after sign-out. */}
       {/* Keys must be unique among siblings (main vs. the sheet below), otherwise React can
           leave the old page in the DOM — that showed stale demo data on every tab after login. */}
-      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="overflow-x-clip p-5" {...swipeHandlers}>
+      <main key={`page-${isDemo ? 'demo' : 'live'}-${dataVersion}`} className="flex-1 overflow-x-clip p-5" {...swipeHandlers}>
+        {/* flex-1: fills down to the bottom bar, so short pages can be swiped on their empty space too. */}
         {!authReady ? (
           <LoadingSpinner message="Loading..." size="md" />
         ) : (
-          // Keyed by tab so the slide-in replays on every swipe.
-          <div
-            key={activeTab}
-            className={
-              slideFrom === 'right'
-                ? 'motion-safe:animate-slide-from-right'
-                : slideFrom === 'left'
-                  ? 'motion-safe:animate-slide-from-left'
-                  : undefined
-            }
-          >
-            {activeTab === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
-            {activeTab === 'sales' && <SalesTracker />}
-            {activeTab === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
-            {activeTab === 'transactions' && <TransactionsTracker />}
-            {activeTab === 'flock' && <FlockManager />}
-            {activeTab === 'reports' && <Reports />}
-          </div>
+          <>
+            {SWIPE_TABS.map((id) => {
+              const active = id === activeTab;
+              if (!active && !warmTabs) return null;
+              return (
+                // Hidden panels are display:none, so the slide-in restarts each time one is shown again.
+                <div
+                  key={id}
+                  hidden={!active}
+                  className={
+                    active && slideFrom === 'right'
+                      ? 'motion-safe:animate-slide-from-right'
+                      : active && slideFrom === 'left'
+                        ? 'motion-safe:animate-slide-from-left'
+                        : undefined
+                  }
+                >
+                  {id === 'overview' && <Overview month={month} onViewLedger={() => goTo('transactions')} />}
+                  {id === 'sales' && <SalesTracker />}
+                  {id === 'eggs' && <DailyLog onAdd={() => openLogSheet()} onEdit={(log) => openLogSheet(log)} />}
+                  {id === 'transactions' && <TransactionsTracker />}
+                  {id === 'flock' && <FlockManager />}
+                  {id === 'reports' && <Reports />}
+                </div>
+              );
+            })}
+          </>
         )}
       </main>
 
