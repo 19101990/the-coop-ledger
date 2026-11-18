@@ -9,9 +9,10 @@ import type { FlockMember } from '../types/types';
 import PageContainer from '../components/PageContainer';
 import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider, textareaClass } from '../components/uiStyles';
+import { todayLocal } from '../utils/format';
 
 export default function FlockManager() {
-  const getTodayString = (): string => new Date().toISOString().split('T')[0];
+  const getTodayString = todayLocal;
   const { isDemo, triggerDemoToast } = useDemo();
   const { refreshKey } = useRefresh();
 

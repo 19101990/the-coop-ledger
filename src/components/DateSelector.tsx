@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { formatFullDate, formatWeekdayDate } from '../utils/format';
+import { formatFullDate, formatWeekdayDate, todayLocal, toLocalISODate } from '../utils/format';
 import { Chevron } from './ui';
 
 interface DateSelectorProps {
@@ -13,14 +13,9 @@ export default function DateSelector({
   onChange,
   label = 'Date'
 }: DateSelectorProps) {
-  const getTodayString = (): string => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
-
-  const formatDateToString = (date: Date): string => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  };
+  // Both in local time, so "Today" and "Yesterday" agree just after midnight too.
+  const getTodayString = todayLocal;
+  const formatDateToString = toLocalISODate;
 
   const formatDisplayDate = (dateStr: string): string => {
     const today = getTodayString();

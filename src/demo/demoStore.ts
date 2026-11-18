@@ -12,6 +12,7 @@ import type {
   TransactionCategory,
   TransactionEntry,
 } from '../types/types';
+import { toLocalISODate } from '../utils/format';
 
 export interface DemoSale {
   id: number;
@@ -68,7 +69,7 @@ function mulberry32(seed: number) {
 const isoDaysAgo = (days: number): string => {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return toLocalISODate(d);
 };
 
 function buildSeed(): DemoData {

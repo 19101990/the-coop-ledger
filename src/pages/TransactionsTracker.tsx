@@ -10,7 +10,7 @@ import PageContainer from '../components/PageContainer';
 import Sheet from '../components/Sheet';
 import { Button, Card, EmptyState, Field, PrimaryButton, Section, Segmented, Select } from '../components/ui';
 import { inputClass, inputOnPageClass } from '../components/uiStyles';
-import { formatEUR, formatFullDate } from '../utils/format';
+import { formatEUR, formatFullDate, todayLocal } from '../utils/format';
 import { compareNewestFirst, signedAmount } from '../utils/transactions';
 import TransactionRow from '../components/TransactionRow';
 import NetResultCard from '../components/NetResultCard';
@@ -49,7 +49,7 @@ const timeframeStart = (tf: Timeframe): string | null => {
 };
 
 export default function TransactionsTracker() {
-  const getTodayString = (): string => new Date().toISOString().split('T')[0];
+  const getTodayString = todayLocal;
 
   const { isDemo, triggerDemoToast } = useDemo();
 

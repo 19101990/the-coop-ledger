@@ -6,8 +6,8 @@ import { demoStore } from '../demo/demoStore';
 import EggChart from './EggChart';
 import LoadingSpinner from './LoadingSpinner';
 import { Card, ScopeToggle, Section, StatCard } from './ui';
-import { formatDayMonth, formatEUR } from '../utils/format';
-import { logTotal, todayISO } from '../utils/eggs';
+import { formatDayMonth, formatEUR, todayLocal } from '../utils/format';
+import { logTotal } from '../utils/eggs';
 import { buildEggSeries, periodStart, type EggPeriod } from '../utils/eggChart';
 import { fetchAllPages } from '../utils/supabasePaging';
 
@@ -70,7 +70,7 @@ export default function EggsSummary({ onAdd }: { onAdd: () => void }) {
   const [data, setData] = useState<EggsData | null>(null);
   const [failed, setFailed] = useState(false);
   const [period, setPeriod] = useState<EggPeriod>('14d');
-  const today = todayISO();
+  const today = todayLocal();
 
   useEffect(() => {
     let cancelled = false;

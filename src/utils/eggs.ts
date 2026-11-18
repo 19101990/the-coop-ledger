@@ -31,6 +31,3 @@ export const logTotal = (log: Partial<Pick<DBLogEntry, `eggs_${EggVariety}`>>): 
 /** Form counter state from a daily_log row. */
 export const countsFromLog = (log: DBLogEntry): EggCounts =>
   Object.fromEntries(EGG_VARIETIES.map((v) => [v, log[`eggs_${v}`] || 0])) as unknown as EggCounts;
-
-/** Today as YYYY-MM-DD (same convention the app has always used for log/sale dates). */
-export const todayISO = (): string => new Date().toISOString().split('T')[0];

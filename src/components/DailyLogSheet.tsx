@@ -7,7 +7,8 @@ import Sheet from './Sheet';
 import DateSelector from './DateSelector';
 import CounterControl from './CounterControl';
 import { Card, PrimaryButton } from './ui';
-import { EGG_SWATCHES, EGG_VARIETIES, countsFromLog, countsTotal, eggVarietyLabel, emptyEggCounts, todayISO } from '../utils/eggs';
+import { EGG_SWATCHES, EGG_VARIETIES, countsFromLog, countsTotal, eggVarietyLabel, emptyEggCounts } from '../utils/eggs';
+import { todayLocal } from '../utils/format';
 
 interface DailyLogSheetProps {
   open: boolean;
@@ -25,7 +26,7 @@ interface DailyLogSheetProps {
 export default function DailyLogSheet({ open, editingLog, onClose, onSaved }: DailyLogSheetProps) {
   const { isDemo, triggerDemoToast } = useDemo();
 
-  const [date, setDate] = useState(editingLog?.date ?? todayISO());
+  const [date, setDate] = useState(editingLog?.date ?? todayLocal());
   const [counts, setCounts] = useState<EggCounts>(editingLog ? countsFromLog(editingLog) : emptyEggCounts());
   const [boxesForSale, setBoxesForSale] = useState(editingLog?.boxes_for_sale ?? 0);
   const [boxesPersonal, setBoxesPersonal] = useState(editingLog?.boxes_personal ?? 0);
