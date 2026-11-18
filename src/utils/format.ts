@@ -13,6 +13,15 @@ export interface YearMonth {
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
+/**
+ * A date as YYYY-MM-DD in the device's local time zone. Don't use `toISOString()` for this: it gives
+ * the UTC date, which in the Netherlands is still yesterday between midnight and 1:00 (2:00 in summer).
+ */
+export const toLocalISODate = (d: Date): string => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
+/** Today's date in local time, as YYYY-MM-DD (the format log, sale and transaction dates use). */
+export const todayLocal = (): string => toLocalISODate(new Date());
+
 export const currentYearMonth = (): YearMonth => {
   const d = new Date();
   return { year: d.getFullYear(), month: d.getMonth() };

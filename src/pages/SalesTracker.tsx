@@ -8,7 +8,7 @@ import { demoStore } from '../demo/demoStore';
 import PageContainer from '../components/PageContainer';
 import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider } from '../components/uiStyles';
-import { formatDayMonth, formatEUR } from '../utils/format';
+import { formatDayMonth, formatEUR, todayLocal } from '../utils/format';
 import EditSaleSheet from '../components/EditSaleSheet';
 import { EGG_SALES_CATEGORY, hasIncome, saleIncomeDescription, takeFromPantry } from '../data/saleEffects';
 
@@ -32,10 +32,7 @@ const toSaleEntry = (row: SaleRow): SaleEntry => ({
 });
 
 export default function SalesTracker() {
-  const getTodayString = (): string => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
+  const getTodayString = todayLocal;
 
   const { isDemo, triggerDemoToast } = useDemo();
 
@@ -267,7 +264,7 @@ export default function SalesTracker() {
             amount_boxes: calculatedBoxes,
             price: finalPrice,
             status: paymentStatus,
-            date: finalDate || new Date().toISOString().split('T')[0],
+            date: finalDate || todayLocal(),
           }
         ])
         .select();
@@ -290,7 +287,7 @@ export default function SalesTracker() {
           .from('transactions')
           .insert([
             {
-              date: finalDate || new Date().toISOString().split('T')[0],
+              date: finalDate || todayLocal(),
               type: 'income',
               category: EGG_SALES_CATEGORY,
               description: saleIncomeDescription(rawEggs, selectedCustomer),
