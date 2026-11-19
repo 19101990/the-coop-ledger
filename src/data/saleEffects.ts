@@ -22,7 +22,11 @@ interface SaleStock {
   loose_eggs: number;
 }
 
-/** Take eggs out of stock: full boxes first, then loose eggs (breaking a box if needed). */
+/**
+ * Take eggs out of stock: full boxes first, then loose eggs (breaking a box if needed).
+ * If there aren't enough boxes, the rest comes out of the loose eggs. Selling more than is in
+ * stock empties the pantry; it never adds eggs.
+ */
 export const takeFromPantry = (pantry: SaleStock, eggs: number) => {
   let newLoose = pantry.loose_eggs - (eggs % 10);
   let newSaleBoxes = pantry.boxes_for_sale - Math.floor(eggs / 10);
@@ -32,7 +36,12 @@ export const takeFromPantry = (pantry: SaleStock, eggs: number) => {
     newSaleBoxes -= 1;
   }
 
-  return { newSaleBoxes: Math.max(0, newSaleBoxes), newLoose: Math.max(0, newLoose) };
+  if (newSaleBoxes < 0) {
+    newLoose += newSaleBoxes * 10;
+    newSaleBoxes = 0;
+  }
+
+  return { newSaleBoxes, newLoose: Math.max(0, newLoose) };
 };
 
 /** Put eggs back into stock: whole tens as boxes for sale, the rest as loose eggs. */
