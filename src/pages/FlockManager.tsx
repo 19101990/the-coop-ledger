@@ -10,6 +10,7 @@ import PageContainer from '../components/PageContainer';
 import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider, textareaClass } from '../components/uiStyles';
 import { todayLocal } from '../utils/format';
+import { errorMessage } from '../utils/errors';
 
 export default function FlockManager() {
   const getTodayString = todayLocal;
@@ -96,8 +97,8 @@ export default function FlockManager() {
       setBreed(cleanName);
       setNewBreedInput('');
       setShowAddBreed(false);
-    } catch (err: any) {
-      alert(`Error adding breed: ${err.message}`);
+    } catch (err) {
+      alert(`Error adding breed: ${errorMessage(err)}`);
     }
   };
 
@@ -174,8 +175,8 @@ export default function FlockManager() {
       const { data } = await supabase.from('flock_members').select('*').order('created_at', { ascending: false });
       if (data) setFlock(data);
       resetForm();
-    } catch (err: any) {
-      alert(`Save Failed: ${err.message}`);
+    } catch (err) {
+      alert(`Save Failed: ${errorMessage(err)}`);
     }
   };
 
@@ -211,8 +212,8 @@ export default function FlockManager() {
       if (data) setFlock(data);
       setArchivingId(null);
       setArchiveReason('');
-    } catch (err: any) {
-      alert(`Archive Failed: ${err.message}`);
+    } catch (err) {
+      alert(`Archive Failed: ${errorMessage(err)}`);
     }
   };
 
