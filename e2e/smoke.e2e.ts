@@ -1,17 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-
-/** Collect uncaught errors and console errors, so a test can check none happened. */
-function watchErrors(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('pageerror', (err) => errors.push(err.message));
-  page.on('console', (msg) => {
-    if (msg.type() === 'error') errors.push(msg.text());
-  });
-  return errors;
-}
-
-const title = (page: Page) => page.getByRole('heading', { level: 1 });
-const bottomTab = (page: Page, name: string) => page.getByRole('navigation').getByRole('button', { name, exact: true });
+import { expect, test } from '@playwright/test';
+import { goToTab, title, watchErrors } from './helpers.ts';
 
 test('opens on Overview in demo mode', async ({ page }) => {
   const errors = watchErrors(page);
@@ -30,14 +18,8 @@ test('every screen loads', async ({ page }) => {
   await expect(title(page)).toHaveText('Overview');
 
   // Bottom bar
-  for (const [tab, heading] of [
-    ['Sales', 'Sales'],
-    ['Eggs', 'Egg log'],
-    ['Ledger', 'Ledger'],
-    ['Overview', 'Overview'],
-  ]) {
-    await bottomTab(page, tab).click();
-    await expect(title(page)).toHaveText(heading);
+  for (const tab of ['Sales', 'Eggs', 'Ledger', 'Overview'] as const) {
+    await goToTab(page, tab);
   }
 
   // Header menu
