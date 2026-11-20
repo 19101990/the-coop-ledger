@@ -9,6 +9,7 @@ import PageContainer from '../components/PageContainer';
 import { Card, Chevron, EmptyState, Field, PrimaryButton, Section, Segmented, Select, TextButton } from '../components/ui';
 import { inputClass, rowDivider } from '../components/uiStyles';
 import { formatDayMonth, formatEUR, todayLocal } from '../utils/format';
+import { errorMessage } from '../utils/errors';
 import EditSaleSheet from '../components/EditSaleSheet';
 import { EGG_SALES_CATEGORY, hasIncome, saleIncomeDescription, takeFromPantry } from '../data/saleEffects';
 
@@ -90,15 +91,15 @@ export default function SalesTracker() {
     fetchCustomers();
   }, [isDemo]);
 
-  useEffect(() => {
-    if (paymentStatus === 'Gift') {
-      setPriceOverride('0.00');
-      setIsManualPrice(false);
-    } else if (!isManualPrice) {
-      const rawCount = parseInt(eggsSoldInput) || 0;
-      setPriceOverride((rawCount * 0.50).toFixed(2));
-    }
-  }, [eggsSoldInput, paymentStatus, isManualPrice]);
+  // Price field: free for gifts, the typed amount once edited by hand, otherwise €0,50 per egg.
+  const priceInput =
+    paymentStatus === 'Gift' ? '0.00' : isManualPrice ? priceOverride : ((parseInt(eggsSoldInput) || 0) * 0.5).toFixed(2);
+
+  const changePaymentStatus = (status: 'Paid' | 'Gift') => {
+    setPaymentStatus(status);
+    // A gift drops a hand-typed price, so switching back to Paid starts from the per-egg price.
+    if (status === 'Gift') setIsManualPrice(false);
+  };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,7 +205,7 @@ export default function SalesTracker() {
     }
 
     const finalDate = saleDate;
-    const finalPrice = paymentStatus === 'Gift' ? 0 : parseFloat(priceOverride) || 0;
+    const finalPrice = parseFloat(priceInput) || 0;
     const calculatedBoxes = rawEggs / 10;
 
     // 🛑 DEMO MODE
@@ -308,14 +309,14 @@ export default function SalesTracker() {
       resetSaleForm();
       // Pantry, ledger, overview and reports all change with a sale.
       notifyDataChanged();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Unexpected error tracking transaction:', err);
-      alert(`Transaction Failed: ${err.message}`);
+      alert(`Transaction Failed: ${errorMessage(err)}`);
     }
   };
 
   const eggsCount = parseInt(eggsSoldInput) || 0;
-  const priceValue = paymentStatus === 'Gift' ? 0 : parseFloat(priceOverride) || 0;
+  const priceValue = parseFloat(priceInput) || 0;
   const newCustomerName = newCustomerInput.trim();
   const canAddCustomer = newCustomerName !== '' && !customers.includes(newCustomerName);
   const priceHint = paymentStatus === 'Gift' ? 'gift' : isManualPrice ? 'custom' : `${formatEUR(0.5)} / egg`;
@@ -401,7 +402,7 @@ export default function SalesTracker() {
             <Segmented
               options={[{ value: 'Paid', label: 'Paid' }, { value: 'Gift', label: 'Gift' }]}
               value={paymentStatus}
-              onChange={setPaymentStatus}
+              onChange={changePaymentStatus}
             />
           </Field>
           <Field label={`Price · ${priceHint}`}>
@@ -418,7 +419,7 @@ export default function SalesTracker() {
                 min="0"
                 aria-label="Price"
                 disabled={paymentStatus === 'Gift'}
-                value={priceOverride}
+                value={priceInput}
                 onChange={(e) => {
                   setPriceOverride(e.target.value);
                   setIsManualPrice(true);

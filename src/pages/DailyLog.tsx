@@ -14,6 +14,25 @@ import { EGG_SWATCHES, EGG_VARIETIES, eggVarietyLabel, logTotal } from '../utils
 
 const boxes = (n: number) => (n === 1 ? 'box' : 'boxes');
 
+const ITEMS_PER_PAGE = 10;
+
+/** History rows, newest first: sample data in demo, Supabase when signed in. Null if loading failed. */
+async function loadLogs(isDemo: boolean, fromIndex: number, toIndex: number): Promise<DBLogEntry[] | null> {
+  if (isDemo) return demoStore.getDailyLogs(fromIndex, toIndex);
+
+  const { data, error } = await supabase
+    .from('daily_log')
+    .select('*')
+    .order('date', { ascending: false })
+    .range(fromIndex, toIndex);
+
+  if (error) {
+    console.error('Error loading history logs:', error.message);
+    return null;
+  }
+  return data;
+}
+
 interface DailyLogProps {
   /** Open the daily log sheet for a new entry (same as the bottom-bar "+"). */
   onAdd: () => void;
@@ -26,64 +45,33 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
   const [logsSummary, setLogsSummary] = useState<DBLogEntry[]>([]);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // Starts true: page 0 loads on mount. Set again by the scroll observer before asking for the next page.
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const { isDemo, triggerDemoToast } = useDemo();
   const { refreshKey, notifyDataChanged } = useRefresh();
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
-  const ITEMS_PER_PAGE = 10;
-
-  // Single source switch for history: sample data in demo, Supabase when signed in.
-  const loadLogs = async (fromIndex: number, toIndex: number): Promise<DBLogEntry[] | null> => {
-    if (isDemo) return demoStore.getDailyLogs(fromIndex, toIndex);
-
-    const { data, error } = await supabase
-      .from('daily_log')
-      .select('*')
-      .order('date', { ascending: false })
-      .range(fromIndex, toIndex);
-
-    if (error) {
-      console.error('Error loading history logs:', error.message);
-      return null;
-    }
-    return data;
-  };
-
-  const fetchLogHistory = async (pageNumber: number, clearAndFetchFirstPage = false) => {
-    if (isLoadingHistory || (!hasMore && !clearAndFetchFirstPage)) return;
-    setIsLoadingHistory(true);
-
-    const fromIndex = pageNumber * ITEMS_PER_PAGE;
-    const toIndex = fromIndex + ITEMS_PER_PAGE - 1;
-
-    try {
-      const data = await loadLogs(fromIndex, toIndex);
-
-      if (data) {
-        // The first page always replaces the list. Appending it could show every entry
-        // twice when the initial load runs more than once (React dev mode runs effects twice).
-        if (clearAndFetchFirstPage || pageNumber === 0) {
-          setLogsSummary(data);
-          setHasMore(data.length === ITEMS_PER_PAGE);
-        } else {
-          setLogsSummary(prev => [...prev, ...data]);
-          if (data.length < ITEMS_PER_PAGE) {
-            setHasMore(false);
-          }
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
 
   useEffect(() => {
-    fetchLogHistory(page);
-  }, [page]);
+    const fromIndex = page * ITEMS_PER_PAGE;
+    let cancelled = false;
+    loadLogs(isDemo, fromIndex, fromIndex + ITEMS_PER_PAGE - 1)
+      .then((data) => {
+        if (cancelled || !data) return;
+        // The first page always replaces the list. Appending it could show every entry
+        // twice when the initial load runs more than once (React dev mode runs effects twice).
+        setLogsSummary((prev) => (page === 0 ? data : [...prev, ...data]));
+        setHasMore(data.length === ITEMS_PER_PAGE);
+      })
+      .catch((err) => console.error('Error loading log history:', err))
+      .finally(() => {
+        if (!cancelled) setIsLoadingHistory(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, isDemo]);
 
   // Quiet refresh: reload as many rows as are already shown and swap them in place, so the list
   // doesn't flash or shrink. Same row count keeps the next "load more" page lined up.
@@ -94,7 +82,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
 
     const count = Math.max(logsSummary.length, ITEMS_PER_PAGE);
     let cancelled = false;
-    loadLogs(0, count - 1)
+    loadLogs(isDemo, 0, count - 1)
       .then((data) => {
         if (cancelled || !data) return;
         setLogsSummary(data);
@@ -113,6 +101,7 @@ export default function DailyLog({ onAdd, onEdit }: DailyLogProps) {
     const observer = new IntersectionObserver(
       entries => {
         if (entries[0].isIntersecting && hasMore && !isLoadingHistory) {
+          setIsLoadingHistory(true);
           setPage(prevPage => prevPage + 1);
         }
       },
